@@ -94,6 +94,12 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals& msg)
 
 void stateMachineStep()
 {
+	static ros::Time time_state_entered = ros::Time::now();
+	if ( intake_state != next_intake_state)
+	{
+		time_state_entered = ros::Time::now();
+	}
+	ros::Duration time_in_state = ros::Time::now() - time_state_entered;
 	intake_state = next_intake_state;
 
 	switch (intake_state)
