@@ -75,10 +75,17 @@ static float drivetrain_fwd_back = 0;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
+static bool uptake_complete = false;
+static bool eject_complete = false;
+static ros::Time time_roller_last_active = ros::Time(0);
 
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals& msg)
 {
 	intake_rollers = msg.intake_rollers;
+	if ( intake_rollers )
+	{
+		time_roller_last_active = ros::Time::now();
+	}
 	retract_intake = msg.retract_intake;
 	manual_intake = msg.manual_intake;
 	manual_outake = msg.manual_outake;
@@ -181,7 +188,7 @@ void stateMachineStep()
 			{
 				next_intake_state = IntakeStates::EJECT_BALL;
 			}
-			else if ( intake_rollers )
+			else if ( intake_rollers || ros::Time::now() - time_roller_last_active < ros::Duration(1) )
 			{
 				next_intake_state = IntakeStates::INTAKE_ROLLERS;
 			}
@@ -194,13 +201,29 @@ void stateMachineStep()
 
 		case IntakeStates::UPTAKE_BALL:
 		{
-			 
+			if ( uptake_complete )
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+				uptake_complete = false;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::UPTAKE_BALL;
+			}
 		}
 		break;
 
 		case IntakeStates::EJECT_BALL:
 		{
-			 
+			if ( eject_complete )
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+				eject_complete = false;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::EJECT_BALL;
+			}	 
 		}
 		break;
 
