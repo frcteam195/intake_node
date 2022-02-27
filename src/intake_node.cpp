@@ -4,20 +4,26 @@
 #include <thread>
 #include <string>
 #include <mutex>
+#include <map>
 #include "ck_utilities/Motor.hpp"
 #include "rio_control_node/Robot_Status.h"
+#include "rio_control_node/Motor_Status.h"
+#include "rio_control_node/Motor_Info.h"
 #include "hmi_agent_node/HMI_Signals.h"
 
 #define FRONT_ROLLER_CAN_ID 7
 #define BACK_ROLLER_CAN_ID 8
 #define FRONT_BELT_CAN_ID 9
 #define BACK_BELT_CAN_ID 10
-#define OUTAKE_CAN_ID 11
+#define UPTAKE_CAN_ID 11
+
+#define PIXY_SIGNAL_CAN_ID 11
 
 ros::NodeHandle* node;
 
 static ros::Subscriber hmi_subscriber;
 static ros::Subscriber robot_state_subscriber;
+static ros::Subscriber motor_status_subscriber;
 
 static Motor * front_roller;
 static Motor * back_roller;
@@ -25,6 +31,13 @@ static Motor * front_belt;
 static Motor * back_belt;
 static Motor * uptake;
 
+static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
+
+enum class Alliance
+{
+	RED,
+	BLUE
+};
 
 enum class RobotState
 {
@@ -34,6 +47,7 @@ enum class RobotState
 };
 
 static RobotState robot_state = RobotState::DISABLED;
+static Alliance alliance = Alliance::RED;
 
 enum class IntakeStates
 {
@@ -51,14 +65,18 @@ enum class DeployedDirection
 
 static DeployedDirection deployed_direction = DeployedDirection::FRONT;
 static IntakeStates intake_state = IntakeStates::IDLE;
+static IntakeStates next_intake_state = IntakeStates::IDLE;
 
-static bool intake_rollers;
-static bool retract_intake;
-static bool manual_intake;
-static bool manual_outake;
-static float drivetrain_fwd_back;
+static bool intake_rollers = false;
+static bool retract_intake = false;
+static bool manual_intake = false;
+static bool manual_outake = false;
+static float drivetrain_fwd_back = 0;
 
-void HMISignalCallback(const hmi_agent_node::HMI_Signals& msg)
+static bool red_ball_present = false;
+static bool blue_ball_present = false;
+
+void hmiSignalCallback(const hmi_agent_node::HMI_Signals& msg)
 {
 	intake_rollers = msg.intake_rollers;
 	retract_intake = msg.retract_intake;
@@ -69,6 +87,8 @@ void HMISignalCallback(const hmi_agent_node::HMI_Signals& msg)
 
 void stateMachineStep()
 {
+	intake_state = next_intake_state;
+
 	switch (intake_state)
 	{
 		case IntakeStates::IDLE:
@@ -132,9 +152,62 @@ void stateMachineStep()
 		}
 		break;
 	}
+
+
+	switch (intake_state)
+	{
+		case IntakeStates::IDLE:
+		{
+			if (intake_rollers)
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::IDLE;
+			}
+		}
+		break;
+
+		case IntakeStates::INTAKE_ROLLERS:
+		{
+			if ( (alliance == Alliance::RED && red_ball_present)
+				|| (alliance == Alliance::BLUE && blue_ball_present) )
+			{
+				next_intake_state = IntakeStates::UPTAKE_BALL;
+			}
+			else if ( (alliance == Alliance::RED && blue_ball_present)
+					|| (alliance == Alliance::BLUE && red_ball_present) )
+			{
+				next_intake_state = IntakeStates::EJECT_BALL;
+			}
+			else if ( intake_rollers )
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::IDLE;
+			}
+		}
+		break;
+
+		case IntakeStates::UPTAKE_BALL:
+		{
+			 
+		}
+		break;
+
+		case IntakeStates::EJECT_BALL:
+		{
+			 
+		}
+		break;
+
+	}
 }
 
-void DetermineDeployDirection()
+void determineDeployDirection()
 {
 	constexpr float accumulator_cap = 50;
 	constexpr float threshold = 20;
@@ -162,50 +235,72 @@ void DetermineDeployDirection()
 	}
 }
 
-void RobotStatusCallback(const rio_control_node::Robot_Status& msg)
+void motorStatusCallback(const rio_control_node::Motor_Status& msg)
 {
-	if(msg.robot_state == rio_control_node::Robot_Status::AUTONOMOUS)
+	for ( const rio_control_node::Motor_Info& motorInfo : msg.motors )
 	{
-		robot_state = RobotState::AUTONOMUS;
+		motor_status_map[motorInfo.id] = motorInfo;
 	}
 
-	if(msg.robot_state == rio_control_node::Robot_Status::DISABLED)
+	if ( motor_status_map.count(PIXY_SIGNAL_CAN_ID) )
 	{
-		robot_state = RobotState::DISABLED;
+		red_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].forward_limit_closed;
+		blue_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].reverse_limit_closed;
 	}
-
-	if(msg.robot_state == rio_control_node::Robot_Status::TELEOP)
+	else
 	{
-		robot_state = RobotState::TELEOP;
+		red_ball_present = false;
+		blue_ball_present = false;
 	}
 }
 
-void MotorConfiguration(void)
+
+
+
+void robotStatusCallback(const rio_control_node::Robot_Status& msg)
+{
+
+	static std::map<int8_t, RobotState> robotStateLookupMap = 
+	{
+		{ rio_control_node::Robot_Status::AUTONOMOUS, RobotState::AUTONOMUS },
+		{ rio_control_node::Robot_Status::DISABLED, RobotState::DISABLED },
+		{ rio_control_node::Robot_Status::TELEOP, RobotState::TELEOP }
+	};
+
+	static std::map<int8_t, Alliance> allianceLookupMap = 
+	{
+		{ rio_control_node::Robot_Status::RED, Alliance::RED },
+		{ rio_control_node::Robot_Status::BLUE, Alliance::BLUE }
+	};
+
+	robot_state = robotStateLookupMap[msg.robot_state];
+	alliance = allianceLookupMap[msg.alliance];
+}
+
+void motorConfiguration(void)
 {
 	front_roller = new Motor(FRONT_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_roller->config().set_stator_current_limit(true, 10, 10, 0);
-	front_roller->config().set_supply_current_limit(true, 10, 10, 0);
+	front_roller->config().set_supply_current_limit(true, 10, 0, 0);
 	front_roller->config().apply();
 
 	back_roller = new Motor(BACK_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_roller->config().set_stator_current_limit(true, 10, 10, 0);
-	back_roller->config().set_supply_current_limit(true, 10, 10, 0);
+	back_roller->config().set_supply_current_limit(true, 10, 0, 0);
 	back_roller->config().apply();
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_belt->config().set_stator_current_limit(true, 10, 10, 0);
-	front_belt->config().set_supply_current_limit(true, 10, 10, 0);
+	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
 	front_belt->config().apply();
 	
 	back_belt = new Motor(BACK_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_belt->config().set_stator_current_limit(true, 10, 10, 0);
-	back_belt->config().set_supply_current_limit(true, 10, 10, 0);
+	back_belt->config().set_supply_current_limit(true, 10, 0, 0);
 	back_belt->config().apply();
 
-	uptake = new Motor(OUTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
-	uptake->config().set_stator_current_limit(true, 10, 10, 0);
-	uptake->config().set_supply_current_limit(true, 10, 10, 0);
+	uptake = new Motor(UPTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
+	uptake->config().set_supply_current_limit(true, 10, 0, 0);
+	uptake->config().set_forward_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
+	uptake->config().set_reverse_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
 	uptake->config().apply();
+	
 }
 
 int main(int argc, char **argv)
@@ -226,28 +321,29 @@ int main(int argc, char **argv)
 
 	node = &n;
 
-	robot_state_subscriber = node->subscribe("/RobotStatus", 1, RobotStatusCallback);
-	hmi_subscriber = node->subscribe("/HMISignals", 1, HMISignalCallback);
+	robot_state_subscriber = node->subscribe("/RobotStatus", 1, robotStatusCallback);
+	hmi_subscriber = node->subscribe("/HMISignals", 1, hmiSignalCallback);
+	motor_status_subscriber = node->subscribe("/MotorStatus", 1, motorStatusCallback);
+
+	motorConfiguration();
+
+	ros::Rate rate(100);
 
 	while(ros::ok())
 	{
 		ros::spinOnce();
-		if(robot_state == RobotState::DISABLED)
+		
+			
+		determineDeployDirection();
+		if(retract_intake || manual_intake || manual_outake)
 		{
 
 		}
 		else
 		{
-			DetermineDeployDirection();
-			if(retract_intake || manual_intake || manual_outake)
-			{
-
-			}
-			else
-			{
-				stateMachineStep();
-			}
+			stateMachineStep();
 		}
+		rate.sleep();
 	}
 
 	return 0;
