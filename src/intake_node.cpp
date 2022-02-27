@@ -142,6 +142,7 @@ void stateMachineStep()
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			uptake_complete = time_in_state > ros::Duration(0.5);
 		}
 		break;
 
@@ -162,6 +163,7 @@ void stateMachineStep()
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
 			}
+			eject_complete = time_in_state > ros::Duration(0.5);
 		}
 		break;
 	}
