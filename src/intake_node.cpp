@@ -10,12 +10,16 @@
 #include "rio_control_node/Motor_Status.h"
 #include "rio_control_node/Motor_Info.h"
 #include "hmi_agent_node/HMI_Signals.h"
+#include "ck_utilities/Piston.hpp"
 
 #define FRONT_ROLLER_CAN_ID 7
 #define BACK_ROLLER_CAN_ID 8
 #define FRONT_BELT_CAN_ID 9
 #define BACK_BELT_CAN_ID 10
 #define UPTAKE_CAN_ID 11
+#define FRONT_PISTON_ID 1
+#define BACK_PISTON_ID 2
+
 
 #define PIXY_SIGNAL_CAN_ID 11
 
@@ -30,6 +34,9 @@ static Motor * back_roller;
 static Motor * front_belt;
 static Motor * back_belt;
 static Motor * uptake;
+
+static Piston * front_intake_solenoid;
+static Piston * back_intake_solenoid;
 
 static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
 
@@ -332,6 +339,8 @@ void motorConfiguration(void)
 	uptake->config().set_reverse_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
 	uptake->config().apply();
 	
+	front_intake_solenoid = new Piston(FRONT_PISTON_ID, Piston::PistonType::SINGLE);
+	back_intake_solenoid = new Piston(BACK_PISTON_ID, Piston::PistonType::SINGLE);
 }
 
 int main(int argc, char **argv)
@@ -368,11 +377,41 @@ int main(int argc, char **argv)
 		determineDeployDirection();
 		if(retract_intake || manual_intake || manual_outake)
 		{
-
+			if(retract_intake)
+			{
+				front_intake_solenoid-> set(Piston::PistonState::OFF);
+				back_intake_solenoid-> set(Piston::PistonState::OFF);
+			}
+			if( manual_intake )
+			{
+				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			}
+			if( manual_outake )
+			{
+				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+			}
 		}
 		else
 		{
 			stateMachineStep();
+			if( deployed_direction == DeployedDirection::FRONT)
+			{
+				front_intake_solenoid-> set(Piston::PistonState::ON);
+				back_intake_solenoid-> set(Piston::PistonState::OFF);
+			}
+			if( deployed_direction == DeployedDirection::BACK)
+			{
+				front_intake_solenoid-> set(Piston::PistonState::OFF);
+				back_intake_solenoid-> set(Piston::PistonState::ON);
+			}
 		}
 		rate.sleep();
 	}
