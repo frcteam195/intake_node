@@ -14,15 +14,15 @@
 #include "intake_node/Intake_Status.h"
 
 #include "hmi_agent_node/HMI_Signals.h"
-#include "ck_utilities/Piston.hpp"
+#include "ck_utilities/Solenoid.hpp"
 
 #define FRONT_ROLLER_CAN_ID 7
 #define BACK_ROLLER_CAN_ID 8
 #define FRONT_BELT_CAN_ID 9
 #define BACK_BELT_CAN_ID 10
 #define UPTAKE_CAN_ID 11
-#define FRONT_PISTON_ID 1
-#define BACK_PISTON_ID 2
+#define FRONT_SOLENOID_ID 1
+#define BACK_SOLENOID_ID 2
 
 #define PIXY_SIGNAL_CAN_ID 11
 
@@ -38,8 +38,8 @@ static Motor *front_belt;
 static Motor *back_belt;
 static Motor *uptake;
 
-static Piston *front_intake_solenoid;
-static Piston *back_intake_solenoid;
+static Solenoid *front_intake_solenoid;
+static Solenoid *back_intake_solenoid;
 
 static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
 
@@ -383,8 +383,8 @@ void motorConfiguration(void)
 	uptake->config().set_reverse_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
 	uptake->config().apply();
 
-	front_intake_solenoid = new Piston(FRONT_PISTON_ID, Piston::PistonType::SINGLE);
-	back_intake_solenoid = new Piston(BACK_PISTON_ID, Piston::PistonType::SINGLE);
+	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+	back_intake_solenoid = new Solenoid(BACK_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
 }
 
 int main(int argc, char **argv)
@@ -422,8 +422,8 @@ int main(int argc, char **argv)
 		{
 			if (retract_intake)
 			{
-				front_intake_solenoid->set(Piston::PistonState::OFF);
-				back_intake_solenoid->set(Piston::PistonState::OFF);
+				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 			}
 			if (manual_intake)
 			{
@@ -447,13 +447,13 @@ int main(int argc, char **argv)
 			stateMachineStep();
 			if (deployed_direction == DeployedDirection::FRONT)
 			{
-				front_intake_solenoid->set(Piston::PistonState::ON);
-				back_intake_solenoid->set(Piston::PistonState::OFF);
+				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
+				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
-				front_intake_solenoid->set(Piston::PistonState::OFF);
-				back_intake_solenoid->set(Piston::PistonState::ON);
+				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
 		}
 		rate.sleep();
