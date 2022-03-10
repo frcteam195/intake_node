@@ -123,6 +123,8 @@ void stateMachineStep()
 	ros::Duration time_in_state = ros::Time::now() - time_state_entered;
 	intake_state = next_intake_state;
 
+	ROS_INFO("Intake State: %d", (int)intake_state);
+
 	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
 	intake_node::Intake_Status statusMsg;
 	if (command_shoot)
@@ -146,6 +148,7 @@ void stateMachineStep()
 		//Turn Off Rollers
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		uptake_reverse = false;
 	}
 	break;
 
@@ -155,16 +158,17 @@ void stateMachineStep()
 		{
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
 		else
 		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
+		uptake_reverse = false;
 	}
 	break;
 
@@ -185,19 +189,22 @@ void stateMachineStep()
 		//Lob The Ball Out
 		if (deployed_direction == DeployedDirection::FRONT)
 		{
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			uptake_reverse = true;
 		}
 		else
 		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			uptake_reverse = true;
 		}
-		eject_complete = time_in_state > ros::Duration(0.5);
+		eject_complete = time_in_state > ros::Duration(3);
 	}
 	break;
 	}
@@ -266,6 +273,7 @@ void stateMachineStep()
 	}
 	break;
 	}
+
 	static ros::Time time_command_started = ros::Time::now();
 	if (command_shoot)
 	{
@@ -282,11 +290,11 @@ void stateMachineStep()
 
 	if (uptake_reverse)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.5, 0);
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 	}
 	else if (uptake_normal || uptake_shoot)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 	}
 	else
 	{
@@ -334,6 +342,7 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 	{
 		red_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].forward_limit_closed;
 		blue_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].reverse_limit_closed;
+		ROS_INFO("Red? %d Blue? %d", red_ball_present, blue_ball_present);
 	}
 	else
 	{
@@ -380,6 +389,7 @@ void motorConfiguration(void)
 	back_belt->config().apply();
 
 	uptake = new Motor(UPTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
+	uptake->config().set_inverted(true);
 	uptake->config().set_supply_current_limit(true, 10, 0, 0);
 	uptake->config().set_forward_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
 	uptake->config().set_reverse_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
@@ -451,12 +461,12 @@ int main(int argc, char **argv)
 			{
 				ROS_INFO("Deploy direction front");
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
-				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
+				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
 				ROS_INFO("Deploy direction back");
-				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
+				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
 		}
