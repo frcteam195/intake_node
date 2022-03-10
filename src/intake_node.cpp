@@ -21,10 +21,10 @@
 #define FRONT_BELT_CAN_ID 9
 #define BACK_BELT_CAN_ID 10
 #define UPTAKE_CAN_ID 11
-#define FRONT_SOLENOID_ID 1
-#define BACK_SOLENOID_ID 2
+#define FRONT_SOLENOID_ID 8
+#define BACK_SOLENOID_ID 9
 
-#define PIXY_SIGNAL_CAN_ID 11
+#define PIXY_SIGNAL_CAN_ID 12
 
 ros::NodeHandle *node;
 
@@ -153,17 +153,17 @@ void stateMachineStep()
 	{
 		if (deployed_direction == DeployedDirection::FRONT)
 		{
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
 		else
 		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.5, 0);
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
 	}
 	break;
@@ -296,12 +296,13 @@ void stateMachineStep()
 
 void determineDeployDirection()
 {
-	constexpr float accumulator_cap = 50;
-	constexpr float threshold = 20;
+	constexpr float accumulator_cap = 10;
+	constexpr float threshold = 5;
+	static float drivetrain_accumulator = 0;
+	ROS_INFO("Accumulator %f", drivetrain_accumulator);
 	//Figure out deployment direction
 	if (fabs(drivetrain_fwd_back) > 0.1)
 	{
-		static float drivetrain_accumulator = 0;
 		drivetrain_accumulator += drivetrain_fwd_back;
 		if (drivetrain_accumulator > accumulator_cap)
 		{
@@ -371,6 +372,7 @@ void motorConfiguration(void)
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
 	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
+	front_belt->config().set_inverted(true);
 	front_belt->config().apply();
 
 	back_belt = new Motor(BACK_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
@@ -447,12 +449,14 @@ int main(int argc, char **argv)
 			stateMachineStep();
 			if (deployed_direction == DeployedDirection::FRONT)
 			{
+				ROS_INFO("Deploy direction front");
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
-				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
-				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+				ROS_INFO("Deploy direction back");
+				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
 		}
