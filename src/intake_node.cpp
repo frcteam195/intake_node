@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 
+#include <atomic>
 #include <thread>
 #include <string>
 #include <mutex>
@@ -25,6 +26,16 @@
 #define BACK_SOLENOID_ID 9
 
 #define PIXY_SIGNAL_CAN_ID 12
+
+
+#define UPTAKE_POWER_FORWARD 1
+#define UPTAKE_POWER_REVERSE -1
+#define UPTAKE_DURATION_S 0.25
+#define UPTAKE_SHOOT_DURATION_S 0.5
+#define EJECT_TIME 2
+#define INTAKE_TIME 1
+
+
 
 ros::NodeHandle *node;
 
@@ -64,7 +75,8 @@ enum class IntakeStates
 	IDLE,
 	INTAKE_ROLLERS,
 	UPTAKE_BALL,
-	EJECT_BALL
+	EJECT_BALL,
+	SHOOTING_BALL
 };
 
 enum class DeployedDirection
@@ -85,8 +97,6 @@ static float drivetrain_fwd_back = 0;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
-static bool uptake_complete = false;
-static bool eject_complete = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
@@ -110,12 +120,23 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 }
 
 static bool has_a_ball = false;
-static bool uptake_reverse = false;
-static bool uptake_normal = false;
-static bool uptake_shoot = false;
+static std::atomic<int> uptake_command = 0;
 void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
+	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
+
+	intake_node::Intake_Status statusMsg;
+	if (command_shoot)
+	{
+		statusMsg.readyToShoot = true;
+		next_intake_state = IntakeStates::SHOOTING_BALL;
+	}
+	else
+	{
+		statusMsg.readyToShoot = false;
+	}
+
 	if (intake_state != next_intake_state)
 	{
 		time_state_entered = ros::Time::now();
@@ -125,30 +146,19 @@ void stateMachineStep()
 
 	ROS_INFO("Intake State: %d", (int)intake_state);
 
-	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
-	intake_node::Intake_Status statusMsg;
-	if (command_shoot)
-	{
-		statusMsg.readyToShoot = true;
-	}
-	else
-	{
-		statusMsg.readyToShoot = false;
-	}
-
 	intakeStatusPublisher.publish(statusMsg);
 
 	switch (intake_state)
 	{
 	case IntakeStates::IDLE:
 	{
-		//Turn Off Belts
+		// Turn Off Belts
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		//Turn Off Rollers
+		// Turn Off Rollers
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		uptake_reverse = false;
+		uptake_command = 0;
 	}
 	break;
 
@@ -168,32 +178,30 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
-		uptake_reverse = false;
+		uptake_command = 0;
 	}
 	break;
 
 	case IntakeStates::UPTAKE_BALL:
 	{
-		//Put Ball Into Uptake
-		uptake_normal = true;
+		// Put Ball Into Uptake
+		uptake_command = 1;
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		uptake_complete = time_in_state > ros::Duration(0.5);
 	}
 	break;
 
 	case IntakeStates::EJECT_BALL:
 	{
-		//Lob The Ball Out
+		// Lob The Ball Out
 		if (deployed_direction == DeployedDirection::FRONT)
 		{
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			uptake_reverse = true;
 		}
 		else
 		{
@@ -201,13 +209,18 @@ void stateMachineStep()
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			uptake_reverse = true;
 		}
-		eject_complete = time_in_state > ros::Duration(3);
+		uptake_command = -1;
 	}
 	break;
+
+	case IntakeStates::SHOOTING_BALL:
+	{
+		uptake_command = 1;
+		break;
 	}
+	}
+
 	switch (intake_state)
 	{
 	case IntakeStates::IDLE:
@@ -233,7 +246,7 @@ void stateMachineStep()
 		{
 			next_intake_state = IntakeStates::EJECT_BALL;
 		}
-		else if (intake_rollers || ros::Time::now() - time_roller_last_active < ros::Duration(1))
+		else if (intake_rollers || ros::Time::now() - time_roller_last_active < ros::Duration(INTAKE_TIME))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
@@ -246,11 +259,10 @@ void stateMachineStep()
 
 	case IntakeStates::UPTAKE_BALL:
 	{
-		if (uptake_complete)
+		if (time_in_state > ros::Duration(UPTAKE_DURATION_S))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 			has_a_ball = true;
-			uptake_complete = false;
 		}
 		else
 		{
@@ -261,10 +273,9 @@ void stateMachineStep()
 
 	case IntakeStates::EJECT_BALL:
 	{
-		if (eject_complete)
+		if (time_in_state > ros::Duration(EJECT_TIME))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
-			eject_complete = false;
 		}
 		else
 		{
@@ -272,29 +283,24 @@ void stateMachineStep()
 		}
 	}
 	break;
-	}
 
-	static ros::Time time_command_started = ros::Time::now();
-	if (command_shoot)
+	case IntakeStates::SHOOTING_BALL:
 	{
-		uptake_shoot = true;
-		if ((ros::Time::now() - time_command_started) > ros::Duration(0.75))
+		if (time_in_state > ros::Duration(UPTAKE_SHOOT_DURATION_S))
 		{
-			has_a_ball = false;
+			next_intake_state = IntakeStates::IDLE;
 		}
+		break;
 	}
-	else
-	{
-		time_command_started = ros::Time::now();
 	}
 
-	if (uptake_reverse)
+	if (uptake_command > 0)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_FORWARD, 0);
 	}
-	else if (uptake_normal || uptake_shoot)
+	else if (uptake_command < 0)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_REVERSE, 0);
 	}
 	else
 	{
@@ -308,7 +314,7 @@ void determineDeployDirection()
 	constexpr float threshold = 5;
 	static float drivetrain_accumulator = 0;
 	ROS_INFO("Accumulator %f", drivetrain_accumulator);
-	//Figure out deployment direction
+	// Figure out deployment direction
 	if (fabs(drivetrain_fwd_back) > 0.1)
 	{
 		drivetrain_accumulator += drivetrain_fwd_back;
