@@ -204,14 +204,14 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
 		else
 		{
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
 
 		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
