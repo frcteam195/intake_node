@@ -347,6 +347,7 @@ void determineDeployDirection()
 			deployed_direction = DeployedDirection::BACK;
 		}
 	}
+	deployed_direction = DeployedDirection::FRONT;
 }
 
 void motorStatusCallback(const rio_control_node::Motor_Status &msg)
