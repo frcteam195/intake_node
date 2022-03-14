@@ -213,7 +213,16 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 		}
-		uptake_command = 0;
+
+		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
+		{
+			uptake_command = 1;
+		}
+		else
+		{
+			uptake_command = 0;
+		}
+		
 	}
 	break;
 
@@ -550,6 +559,7 @@ int main(int argc, char **argv)
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
 		}
+		publish_diagnostic_data();
 		rate.sleep();
 	}
 
