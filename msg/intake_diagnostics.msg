@@ -1,0 +1,12 @@
+string deployed_direction 
+string intake_state 
+string next_intake_state
+bool intake_rollers
+bool retract_intake
+bool manual_intake
+bool manual_outake
+float32 drivetrain_fwd_back
+bool red_ball_present
+bool blue_ball_present
+bool uptake_complete 
+bool eject_complete

@@ -13,6 +13,7 @@
 
 #include "intake_node/Intake_Control.h"
 #include "intake_node/Intake_Status.h"
+#include "intake_node/intake_diagnostics.h"
 
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
@@ -118,6 +119,8 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 	(void)msg;
 	command_shoot = msg.command_shoot;
 }
+
+
 
 static bool has_a_ball = false;
 static std::atomic<int> uptake_command = 0;
@@ -403,6 +406,77 @@ void motorConfiguration(void)
 
 	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
 	back_intake_solenoid = new Solenoid(BACK_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+}
+
+
+
+std::string intake_state_to_string(IntakeStates state)
+{
+    switch (state)
+    {
+    case IntakeStates::IDLE:
+    {
+        return "IDLE";
+        break;
+    }
+    case IntakeStates::INTAKE_ROLLERS:
+    {
+        return "INTAKE_ROLLERS";
+        break;
+    }
+	case IntakeStates::UPTAKE_BALL:
+    {
+        return "UPTAKE_BALL";
+        break;
+    }
+	case IntakeStates::EJECT_BALL:
+    {
+        return "EJECT_BALL";
+        break;
+    }
+	case IntakeStates::SHOOTING_BALL:
+	{
+		return "SHOOTING_BALL";
+		break;
+	}
+    }
+    return "INVALID";
+}
+
+std::string intake_deployed_direction_to_string(DeployedDirection state)
+{
+    switch (state)
+    {
+    case DeployedDirection::FRONT:
+    {
+        return "FRONT";
+        break;
+    }
+    case DeployedDirection::BACK:
+    {
+        return "BACK";
+        break;
+    }
+	}
+    return "INVALID";
+}
+
+void publish_diagnostic_data()
+{
+	static ros::Publisher diagnostic_publisher = node->advertise<intake_node::intake_diagnostics>("/IntakeNodeDiagnostics", 1);
+	intake_node::intake_diagnostics diagnostics;
+
+	diagnostics.deployed_direction = intake_deployed_direction_to_string(deployed_direction);
+	diagnostics.intake_state = intake_state_to_string(intake_state);
+	diagnostics.next_intake_state = intake_state_to_string(next_intake_state);
+	diagnostics.intake_rollers = intake_rollers;
+	diagnostics.retract_intake = retract_intake;
+	diagnostics.manual_intake = manual_intake;
+	diagnostics.manual_outake = manual_outake;
+	diagnostics.drivetrain_fwd_back = drivetrain_fwd_back;
+	diagnostics.red_ball_present = red_ball_present;
+	diagnostics.blue_ball_present = blue_ball_present;
+	diagnostic_publisher.publish(diagnostics);
 }
 
 int main(int argc, char **argv)

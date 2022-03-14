@@ -50,6 +50,7 @@ add_message_files(
    FILES
    Intake_Control.msg
    Intake_Status.msg
+   intake_diagnostics.msg
  )
 
 ## Generate services in the 'srv' folder
