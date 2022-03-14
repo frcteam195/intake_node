@@ -210,7 +210,7 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 		}
-		uptake_command = -1;
+		uptake_command = 0;
 	}
 	break;
 
