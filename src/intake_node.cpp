@@ -31,7 +31,8 @@
 
 #define UPTAKE_POWER_FORWARD 1
 #define UPTAKE_POWER_REVERSE -1
-#define UPTAKE_DURATION_S 0.25
+#define UPTAKE_LOADING_DISTANCE 3.5
+#define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.5
 #define EJECT_TIME 2
 #define INTAKE_TIME 1
@@ -43,6 +44,7 @@ ros::NodeHandle *node;
 static ros::Subscriber hmi_subscriber;
 static ros::Subscriber robot_state_subscriber;
 static ros::Subscriber motor_status_subscriber;
+static ros::Subscriber intake_control_subscriber;
 
 static Motor *front_roller;
 static Motor *back_roller;
@@ -97,6 +99,7 @@ static bool retract_intake = false;
 static bool manual_intake = false;
 static bool manual_outake = false;
 static float drivetrain_fwd_back = 0;
+static double uptake_position = 0;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
@@ -115,10 +118,9 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
 }
 
-bool command_shoot = false;
+static bool command_shoot = false;
 void intake_control_callback(const intake_node::Intake_Control &msg)
 {
-	(void)msg;
 	command_shoot = msg.command_shoot;
 }
 
@@ -130,12 +132,23 @@ void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
 	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
+	static double uptake_at_start_of_state = 0;
+	static double uptake_target = 0;
+	if(next_intake_state != intake_state)
+	{
+		uptake_at_start_of_state = uptake_position;
+	}
+
 
 	intake_node::Intake_Status statusMsg;
 	if (command_shoot)
 	{
-		statusMsg.readyToShoot = true;
 		next_intake_state = IntakeStates::SHOOTING_BALL;
+	}
+
+	if (has_a_ball)
+	{
+		statusMsg.readyToShoot = true;
 	}
 	else
 	{
@@ -190,7 +203,11 @@ void stateMachineStep()
 	case IntakeStates::UPTAKE_BALL:
 	{
 		// Put Ball Into Uptake
-		uptake_command = 1;
+		if (!has_a_ball)
+		{
+			uptake_target = uptake_at_start_of_state + UPTAKE_LOADING_DISTANCE;
+			uptake->set(Motor::Control_Mode::MOTION_MAGIC, uptake_target, 0);
+		}
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
@@ -273,9 +290,12 @@ void stateMachineStep()
 
 	case IntakeStates::UPTAKE_BALL:
 	{
-		if (time_in_state > ros::Duration(UPTAKE_DURATION_S))
+		if (uptake_position >= uptake_target - 0.2 || has_a_ball)
 		{
-			next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			if(!has_a_ball)
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			}
 			has_a_ball = true;
 		}
 		else
@@ -304,21 +324,25 @@ void stateMachineStep()
 		{
 			next_intake_state = IntakeStates::IDLE;
 		}
+		has_a_ball = false;
 		break;
 	}
 	}
 
-	if (uptake_command > 0)
+	if(intake_state != IntakeStates::UPTAKE_BALL)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_FORWARD, 0);
-	}
-	else if (uptake_command < 0)
-	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_REVERSE, 0);
-	}
-	else
-	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		if (uptake_command > 0)
+		{
+			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_FORWARD, 0);
+		}
+		else if (uptake_command < 0)
+		{
+			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_REVERSE, 0);
+		}
+		else
+		{
+			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 	}
 }
 
@@ -370,6 +394,10 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 		red_ball_present = false;
 		blue_ball_present = false;
 	}
+	if (motor_status_map.find(UPTAKE_CAN_ID) != motor_status_map.end())
+	{
+		uptake_position = motor_status_map[UPTAKE_CAN_ID].sensor_position;
+	}
 }
 
 void robotStatusCallback(const rio_control_node::Robot_Status &msg)
@@ -416,10 +444,17 @@ void motorConfiguration(void)
 	uptake = new Motor(UPTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
 	uptake->config().set_inverted(true);
 	uptake->config().set_supply_current_limit(true, 10, 0, 0);
-	uptake->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
-	uptake->config().set_forward_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
-	uptake->config().set_reverse_limit_switch(MotorConfig::LimitSwitchSource::Deactivated, MotorConfig::LimitSwitchNormal::Disabled);
+	uptake->config().set_neutral_mode(MotorConfig::NeutralMode::BRAKE);
+    uptake->config().set_kP(0.07);
+    uptake->config().set_kI(0.0);
+    uptake->config().set_kD(0.05);
+    uptake->config().set_kF(0.047651);
+    uptake->config().set_motion_cruise_velocity(16000);
+    uptake->config().set_motion_acceleration(32000);
+    uptake->config().set_motion_s_curve_strength(5);
 	uptake->config().apply();
+
+
 
 	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
 	back_intake_solenoid = new Solenoid(BACK_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
@@ -493,6 +528,7 @@ void publish_diagnostic_data()
 	diagnostics.drivetrain_fwd_back = drivetrain_fwd_back;
 	diagnostics.red_ball_present = red_ball_present;
 	diagnostics.blue_ball_present = blue_ball_present;
+	diagnostics.has_a_ball = has_a_ball;
 	diagnostic_publisher.publish(diagnostics);
 }
 
@@ -517,6 +553,7 @@ int main(int argc, char **argv)
 	robot_state_subscriber = node->subscribe("/RobotStatus", 1, robotStatusCallback);
 	hmi_subscriber = node->subscribe("/HMISignals", 1, hmiSignalCallback);
 	motor_status_subscriber = node->subscribe("/MotorStatus", 1, motorStatusCallback);
+	intake_control_subscriber = node->subscribe("/IntakeControl", 1, intake_control_callback);
 
 	motorConfiguration();
 
@@ -544,6 +581,9 @@ int main(int argc, char **argv)
 			}
 			if (manual_outake)
 			{
+				has_a_ball = false;
+				intake_state = IntakeStates::IDLE;
+				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
