@@ -90,7 +90,7 @@ enum class DeployedDirection
 	BACK
 };
 
-static DeployedDirection deployed_direction = DeployedDirection::FRONT;
+static DeployedDirection deployed_direction = DeployedDirection::BACK;
 static IntakeStates intake_state = IntakeStates::IDLE;
 static IntakeStates next_intake_state = IntakeStates::IDLE;
 
