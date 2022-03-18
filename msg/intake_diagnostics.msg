@@ -10,3 +10,5 @@ bool red_ball_present
 bool blue_ball_present
 bool has_a_ball 
 bool eject_complete
+float32 uptake_target
+float32 uptake_actual

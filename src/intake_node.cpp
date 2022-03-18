@@ -31,7 +31,7 @@
 
 #define UPTAKE_POWER_FORWARD 1
 #define UPTAKE_POWER_REVERSE -1
-#define UPTAKE_LOADING_DISTANCE 3.5
+#define UPTAKE_LOADING_DISTANCE 4.5
 #define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.5
 #define EJECT_TIME 2
@@ -98,6 +98,7 @@ static bool intake_rollers = false;
 static bool retract_intake = false;
 static bool manual_intake = false;
 static bool manual_outake = false;
+static bool flip_intakes = false;
 static float drivetrain_fwd_back = 0;
 static double uptake_position = 0;
 
@@ -116,6 +117,7 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_intake = msg.manual_intake;
 	manual_outake = msg.manual_outake;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
+	flip_intakes = msg.flip_intakes;
 }
 
 static bool command_shoot = false;
@@ -127,13 +129,13 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 
 
 static bool has_a_ball = false;
+static double uptake_target = 0;
 static std::atomic<int> uptake_command = 0;
 void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
 	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
 	static double uptake_at_start_of_state = 0;
-	static double uptake_target = 0;
 	if(next_intake_state != intake_state)
 	{
 		uptake_at_start_of_state = uptake_position;
@@ -191,10 +193,10 @@ void stateMachineStep()
 		}
 		else
 		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
 		uptake_command = 0;
 	}
@@ -269,7 +271,7 @@ void stateMachineStep()
 
 	case IntakeStates::INTAKE_ROLLERS:
 	{
-		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
+		if (!has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
 		}
@@ -290,17 +292,23 @@ void stateMachineStep()
 
 	case IntakeStates::UPTAKE_BALL:
 	{
+		static ros::Time begin_transition_time = ros::Time::now();
 		if (uptake_position >= uptake_target - 0.2 || has_a_ball)
 		{
+			
 			if(!has_a_ball)
 			{
-				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+				begin_transition_time = ros::Time::now();
 			}
 			has_a_ball = true;
 		}
 		else
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
+		}
+		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(0.5))
+		{
+			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
 	}
 	break;
@@ -348,32 +356,49 @@ void stateMachineStep()
 
 void determineDeployDirection()
 {
-	constexpr float accumulator_cap = 10;
-	constexpr float threshold = 5;
-	static float drivetrain_accumulator = 0;
-	ROS_INFO("Accumulator %f", drivetrain_accumulator);
+	// constexpr float accumulator_cap = 10;
+	// constexpr float threshold = 5;
+	// static float drivetrain_accumulator = 0;
+	// ROS_INFO("Accumulator %f", drivetrain_accumulator);
 	// Figure out deployment direction
-	if (fabs(drivetrain_fwd_back) > 0.1)
+	// if (fabs(drivetrain_fwd_back) > 0.1)
+	// {
+	// 	drivetrain_accumulator += drivetrain_fwd_back;
+	// 	if (drivetrain_accumulator > accumulator_cap)
+	// 	{
+	// 		drivetrain_accumulator = accumulator_cap;
+	// 	}
+	// 	if (drivetrain_accumulator < -accumulator_cap)
+	// 	{
+	// 		drivetrain_accumulator = -accumulator_cap;
+	// 	}
+	// 	if (drivetrain_accumulator > threshold)
+	// 	{
+	// 		deployed_direction = DeployedDirection::FRONT;
+	// 	}
+	// 	if (drivetrain_accumulator < -threshold)
+	// 	{
+	// 		deployed_direction = DeployedDirection::BACK;
+	// 	}
+	// }
+
+	static DeployedDirection remembered = DeployedDirection::FRONT;
+	static bool last_flip_intakes = false;
+	if(flip_intakes && !last_flip_intakes)
 	{
-		drivetrain_accumulator += drivetrain_fwd_back;
-		if (drivetrain_accumulator > accumulator_cap)
+		if(remembered == DeployedDirection::FRONT)
 		{
-			drivetrain_accumulator = accumulator_cap;
+			remembered = DeployedDirection::BACK;
 		}
-		if (drivetrain_accumulator < -accumulator_cap)
+		else
 		{
-			drivetrain_accumulator = -accumulator_cap;
-		}
-		if (drivetrain_accumulator > threshold)
-		{
-			deployed_direction = DeployedDirection::FRONT;
-		}
-		if (drivetrain_accumulator < -threshold)
-		{
-			deployed_direction = DeployedDirection::BACK;
+			remembered = DeployedDirection::FRONT;
 		}
 	}
-	deployed_direction = DeployedDirection::FRONT;
+	last_flip_intakes = flip_intakes;
+
+
+	deployed_direction = remembered;
 }
 
 void motorStatusCallback(const rio_control_node::Motor_Status &msg)
@@ -529,6 +554,8 @@ void publish_diagnostic_data()
 	diagnostics.red_ball_present = red_ball_present;
 	diagnostics.blue_ball_present = blue_ball_present;
 	diagnostics.has_a_ball = has_a_ball;
+	diagnostics.uptake_target = uptake_target;
+	diagnostics.uptake_actual = uptake_position;
 	diagnostic_publisher.publish(diagnostics);
 }
 
