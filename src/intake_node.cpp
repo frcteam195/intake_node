@@ -659,9 +659,11 @@ int main(int argc, char **argv)
 		ros::spinOnce();
 
 		determineDeployDirection();
-		if (retract_intake || manual_intake || manual_outake)
+		// Decided at WNE to require retract intake to be held down to extend intakes
+		// this should be cleaned up FIXME TBD MGT
+		if (!retract_intake || manual_intake || manual_outake)
 		{
-			if (retract_intake)
+			if (!retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 #ifdef REAR_INTAKE_ENABLED
