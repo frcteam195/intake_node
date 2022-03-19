@@ -18,13 +18,18 @@
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
 
+//#define REAR_INTAKE_ENABLED
+
 #define FRONT_ROLLER_CAN_ID 7
-#define BACK_ROLLER_CAN_ID 8
 #define FRONT_BELT_CAN_ID 9
 #define BACK_BELT_CAN_ID 10
 #define UPTAKE_CAN_ID 11
 #define FRONT_SOLENOID_ID 4
+
+#ifdef REAR_INTAKE_ENABLED
+#define BACK_ROLLER_CAN_ID 8
 #define BACK_SOLENOID_ID 5
+#endif
 
 #define PIXY_SIGNAL_CAN_ID 12
 
@@ -47,13 +52,15 @@ static ros::Subscriber motor_status_subscriber;
 static ros::Subscriber intake_control_subscriber;
 
 static Motor *front_roller;
-static Motor *back_roller;
 static Motor *front_belt;
 static Motor *back_belt;
 static Motor *uptake;
 
 static Solenoid *front_intake_solenoid;
+#ifdef REAR_INTAKE_ENABLED
+static Motor *back_roller;
 static Solenoid *back_intake_solenoid;
+#endif
 
 static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
 
@@ -90,7 +97,12 @@ enum class DeployedDirection
 	BACK
 };
 
+#ifdef REAR_INTAKE_ENABLED
 static DeployedDirection deployed_direction = DeployedDirection::BACK;
+#else
+static DeployedDirection deployed_direction = DeployedDirection::FRONT;
+#endif
+
 static IntakeStates intake_state = IntakeStates::IDLE;
 static IntakeStates next_intake_state = IntakeStates::IDLE;
 
@@ -130,7 +142,7 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 
 static bool has_a_ball = false;
 static double uptake_target = 0;
-static std::atomic<int> uptake_command = 0;
+static int uptake_command = 0;
 void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
@@ -177,7 +189,9 @@ void stateMachineStep()
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		// Turn Off Rollers
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#ifdef REAR_INTAKE_ENABLED
 		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#endif
 		uptake_command = 0;
 	}
 	break;
@@ -189,12 +203,16 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#ifdef REAR_INTAKE_ENABLED
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#endif
 		}
 		else
 		{
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+#ifdef REAR_INTAKE_ENABLED
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+#endif
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
@@ -213,7 +231,9 @@ void stateMachineStep()
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#ifdef REAR_INTAKE_ENABLED
 		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#endif
 	}
 	break;
 
@@ -225,12 +245,16 @@ void stateMachineStep()
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
+#ifdef REAR_INTAKE_ENABLED
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+#endif
 		}
 		else
 		{
 			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+#ifdef REAR_INTAKE_ENABLED
 			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+#endif
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
@@ -381,7 +405,7 @@ void determineDeployDirection()
 	// 		deployed_direction = DeployedDirection::BACK;
 	// 	}
 	// }
-
+#ifdef REAR_INTAKE_ENABLED
 	static DeployedDirection remembered = DeployedDirection::FRONT;
 	static bool last_flip_intakes = false;
 	if(flip_intakes && !last_flip_intakes)
@@ -399,6 +423,9 @@ void determineDeployDirection()
 
 
 	deployed_direction = remembered;
+#else
+	deployed_direction = DeployedDirection::FRONT;
+#endif
 }
 
 void motorStatusCallback(const rio_control_node::Motor_Status &msg)
@@ -450,10 +477,12 @@ void motorConfiguration(void)
 	front_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_roller->config().apply();
 
+#ifdef REAR_INTAKE_ENABLED
 	back_roller = new Motor(BACK_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
 	back_roller->config().set_supply_current_limit(true, 10, 0, 0);
 	back_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	back_roller->config().apply();
+#endif
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
 	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
@@ -479,10 +508,10 @@ void motorConfiguration(void)
     uptake->config().set_motion_s_curve_strength(5);
 	uptake->config().apply();
 
-
-
 	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+#ifdef REAR_INTAKE_ENABLED
 	back_intake_solenoid = new Solenoid(BACK_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+#endif
 }
 
 
@@ -596,14 +625,18 @@ int main(int argc, char **argv)
 			if (retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+	#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+	#endif
 			}
 			if (manual_intake)
 			{
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+	#ifdef REAR_INTAKE_ENABLED
 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+	#endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			}
 			if (manual_outake)
@@ -614,7 +647,9 @@ int main(int argc, char **argv)
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+	#ifdef REAR_INTAKE_ENABLED
 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+	#endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 			}
 		}
@@ -625,13 +660,17 @@ int main(int argc, char **argv)
 			{
 				ROS_INFO("Deploy direction front");
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
+	#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+	#endif
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
 				ROS_INFO("Deploy direction back");
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+	#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
+	#endif
 			}
 		}
 		publish_diagnostic_data();
