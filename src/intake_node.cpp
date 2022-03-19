@@ -18,7 +18,7 @@
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
 
-//#define REAR_INTAKE_ENABLED
+#define REAR_INTAKE_ENABLED
 
 #define FRONT_ROLLER_CAN_ID 7
 #define FRONT_BELT_CAN_ID 9
