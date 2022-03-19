@@ -75,7 +75,8 @@ enum class RobotState
 {
 	DISABLED,
 	AUTONOMUS,
-	TELEOP
+	TELEOP,
+	TEST
 };
 
 static RobotState robot_state = RobotState::DISABLED;
@@ -117,6 +118,7 @@ static double uptake_position = 0;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
+static bool hooks_deployed = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
 ros::ServiceClient nt_setbool_client;
@@ -142,6 +144,10 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_outake = msg.manual_outake;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
 	flip_intakes = msg.flip_intakes;
+	if (!hooks_deployed)
+    {
+        hooks_deployed = msg.deploy_hooks;
+    }
 }
 
 static bool command_shoot = false;
@@ -288,6 +294,7 @@ void stateMachineStep()
 		uptake_command = 1;
 		break;
 	}
+
 	}
 
 	switch (intake_state)
@@ -663,11 +670,18 @@ int main(int argc, char **argv)
 		// this should be cleaned up FIXME TBD MGT
 		if (!retract_intake || manual_intake || manual_outake)
 		{
-			if (!retract_intake)
+			if (!retract_intake && !hooks_deployed)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 #ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+#endif
+			}
+			else if (hooks_deployed)
+			{
+				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+#ifdef REAR_INTAKE_ENABLED
+				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 #endif
 			}
 // 			if (manual_intake)
