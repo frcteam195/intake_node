@@ -625,18 +625,18 @@ int main(int argc, char **argv)
 			if (retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-	#ifdef REAR_INTAKE_ENABLED
+#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-	#endif
+#endif
 			}
 			if (manual_intake)
 			{
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-	#ifdef REAR_INTAKE_ENABLED
+#ifdef REAR_INTAKE_ENABLED
 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-	#endif
+#endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 			}
 			if (manual_outake)
@@ -647,9 +647,9 @@ int main(int argc, char **argv)
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-	#ifdef REAR_INTAKE_ENABLED
+#ifdef REAR_INTAKE_ENABLED
 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-	#endif
+#endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 			}
 		}
@@ -660,17 +660,17 @@ int main(int argc, char **argv)
 			{
 				ROS_INFO("Deploy direction front");
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
-	#ifdef REAR_INTAKE_ENABLED
+#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-	#endif
+#endif
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
 				ROS_INFO("Deploy direction back");
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-	#ifdef REAR_INTAKE_ENABLED
+#ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
-	#endif
+#endif
 			}
 		}
 		publish_diagnostic_data();
