@@ -670,16 +670,16 @@ int main(int argc, char **argv)
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 #endif
 			}
-			if (manual_intake)
-			{
-				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-#ifdef REAR_INTAKE_ENABLED
-				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-#endif
-				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			}
+// 			if (manual_intake)
+// 			{
+// 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+// 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+// 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+// #ifdef REAR_INTAKE_ENABLED
+// 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+// #endif
+// 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+// 			}
 			if (manual_outake)
 			{
 				has_a_ball = false;
@@ -692,6 +692,11 @@ int main(int argc, char **argv)
 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 #endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+			}
+			else
+			{
+				//TBD MGT FIXME TODO this has to be cleaned up after WNE
+				stateMachineStep();
 			}
 		}
 		else
