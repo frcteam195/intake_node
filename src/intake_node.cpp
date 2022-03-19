@@ -17,6 +17,7 @@
 
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
+#include <network_tables_node/NTSetBool.h>
 
 #define REAR_INTAKE_ENABLED
 
@@ -118,6 +119,17 @@ static bool red_ball_present = false;
 static bool blue_ball_present = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
+ros::ServiceClient nt_setbool_client;
+
+ros::ServiceClient& getNTSetBoolSrv()
+{
+	if (!nt_setbool_client)
+	{
+		nt_setbool_client = node->serviceClient<network_tables_node::NTSetBool>("nt_setbool", true);
+	}
+	return nt_setbool_client;
+}
+
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 {
 	intake_rollers = msg.intake_rollers;
@@ -140,7 +152,7 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 
 
 
-static bool has_a_ball = false;
+static std::atomic_bool has_a_ball {false};
 static double uptake_target = 0;
 static int uptake_command = 0;
 void stateMachineStep()
@@ -588,6 +600,31 @@ void publish_diagnostic_data()
 	diagnostic_publisher.publish(diagnostics);
 }
 
+void nt_publish()
+{
+	ros::Rate rate(10);
+	while(ros::ok())
+	{
+		ros::ServiceClient& nt_setbool_localclient = getNTSetBoolSrv();
+		if (nt_setbool_localclient)
+		{
+			bool setSuccess = true;
+			network_tables_node::NTSetBool ntmsg;
+			ntmsg.request.table_name = "DiagData";
+			ntmsg.request.entry_name = "HasBall";
+			ntmsg.request.value = has_a_ball;
+			setSuccess &= nt_setbool_client.call(ntmsg);
+			if (!setSuccess)
+			{
+				// ROS_WARN("Failed to set values for limelight: %s", ll.name.c_str());
+			}
+
+		}
+		rate.sleep();
+	}
+
+}
+
 int main(int argc, char **argv)
 {
 	/**
@@ -610,6 +647,8 @@ int main(int argc, char **argv)
 	hmi_subscriber = node->subscribe("/HMISignals", 1, hmiSignalCallback);
 	motor_status_subscriber = node->subscribe("/MotorStatus", 1, motorStatusCallback);
 	intake_control_subscriber = node->subscribe("/IntakeControl", 1, intake_control_callback);
+
+	std::thread nt_publish_thread(nt_publish);
 
 	motorConfiguration();
 
@@ -676,6 +715,8 @@ int main(int argc, char **argv)
 		publish_diagnostic_data();
 		rate.sleep();
 	}
+
+	nt_publish_thread.join();
 
 	return 0;
 }
