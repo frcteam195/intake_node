@@ -18,6 +18,7 @@
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
 #include <network_tables_node/NTSetBool.h>
+#include <climber_node/Climber_Status.h>
 
 #define REAR_INTAKE_ENABLED
 
@@ -51,6 +52,7 @@ static ros::Subscriber hmi_subscriber;
 static ros::Subscriber robot_state_subscriber;
 static ros::Subscriber motor_status_subscriber;
 static ros::Subscriber intake_control_subscriber;
+static ros::Subscriber climber_status_subscriber;
 
 static Motor *front_roller;
 static Motor *front_belt;
@@ -75,7 +77,8 @@ enum class RobotState
 {
 	DISABLED,
 	AUTONOMUS,
-	TELEOP
+	TELEOP,
+	TEST
 };
 
 static RobotState robot_state = RobotState::DISABLED;
@@ -117,6 +120,7 @@ static double uptake_position = 0;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
+static bool hooks_deployed = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
 ros::ServiceClient nt_setbool_client;
@@ -142,6 +146,10 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_outake = msg.manual_outake;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
 	flip_intakes = msg.flip_intakes;
+	if (!hooks_deployed)
+    {
+        hooks_deployed = msg.deploy_hooks;
+    }
 }
 
 static bool command_shoot = false;
@@ -150,6 +158,11 @@ void intake_control_callback(const intake_node::Intake_Control &msg)
 	command_shoot = msg.command_shoot;
 }
 
+static bool climber_retract_intake = false;
+void climber_status_callback(const climber_node::Climber_Status &msg)
+{
+	climber_retract_intake = msg.climber_retract_intake;
+}
 
 
 static std::atomic_bool has_a_ball {false};
@@ -288,6 +301,7 @@ void stateMachineStep()
 		uptake_command = 1;
 		break;
 	}
+
 	}
 
 	switch (intake_state)
@@ -647,6 +661,7 @@ int main(int argc, char **argv)
 	hmi_subscriber = node->subscribe("/HMISignals", 1, hmiSignalCallback);
 	motor_status_subscriber = node->subscribe("/MotorStatus", 1, motorStatusCallback);
 	intake_control_subscriber = node->subscribe("/IntakeControl", 1, intake_control_callback);
+	climber_status_subscriber = node->subscribe("/ClimberStatus", 1, climber_status_callback);
 
 	std::thread nt_publish_thread(nt_publish);
 
@@ -672,11 +687,18 @@ int main(int argc, char **argv)
 		// this should be cleaned up FIXME TBD MGT
 		if (!retract_intake || manual_intake || manual_outake)
 		{
-			if (!retract_intake)
+			if ((!retract_intake && !hooks_deployed) || climber_retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 #ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+#endif
+			}
+			else if (hooks_deployed && !climber_retract_intake)
+			{
+				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
+#ifdef REAR_INTAKE_ENABLED
+				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
 #endif
 			}
 // 			if (manual_intake)
