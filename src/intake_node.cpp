@@ -682,6 +682,8 @@ int main(int argc, char **argv)
 			next_intake_state = IntakeStates::IDLE;
 		}
 
+		last_robot_state = robot_state;
+
 		determineDeployDirection();
 		// Decided at WNE to require retract intake to be held down to extend intakes
 		// this should be cleaned up FIXME TBD MGT
