@@ -418,7 +418,7 @@ void determineDeployDirection()
 	// 	}
 	// }
 #ifdef REAR_INTAKE_ENABLED
-	static DeployedDirection remembered = DeployedDirection::FRONT;
+	static DeployedDirection remembered = DeployedDirection::BACK;
 	static bool last_flip_intakes = false;
 	if(flip_intakes && !last_flip_intakes)
 	{
