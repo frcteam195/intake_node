@@ -658,6 +658,15 @@ int main(int argc, char **argv)
 	{
 		ros::spinOnce();
 
+		static RobotState last_robot_state = RobotState::DISABLED;
+
+		if ((robot_state == RobotState::AUTONOMUS || robot_state == RobotState::TELEOP) && last_robot_state == RobotState::DISABLED)
+		{
+			has_a_ball = false;
+			next_intake_state = IntakeStates::IDLE;
+			next_intake_state = IntakeStates::IDLE;
+		}
+
 		determineDeployDirection();
 		// Decided at WNE to require retract intake to be held down to extend intakes
 		// this should be cleaned up FIXME TBD MGT
