@@ -201,7 +201,7 @@ void stateMachineStep()
 	ros::Duration time_in_state = ros::Time::now() - time_state_entered;
 	intake_state = next_intake_state;
 
-	ROS_INFO("Intake State: %d", (int)intake_state);
+	// ROS_INFO("Intake State: %d", (int)intake_state);
 
 	intakeStatusPublisher.publish(statusMsg);
 
@@ -465,7 +465,7 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 	{
 		red_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].forward_limit_closed;
 		blue_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].reverse_limit_closed;
-		ROS_INFO("Red? %d Blue? %d", red_ball_present, blue_ball_present);
+		// ROS_INFO("Red? %d Blue? %d", red_ball_present, blue_ball_present);
 	}
 	else
 	{
@@ -737,7 +737,7 @@ int main(int argc, char **argv)
 			stateMachineStep();
 			if (deployed_direction == DeployedDirection::FRONT)
 			{
-				ROS_INFO("Deploy direction front");
+				// ROS_INFO("Deploy direction front");
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
 #ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
@@ -745,7 +745,7 @@ int main(int argc, char **argv)
 			}
 			if (deployed_direction == DeployedDirection::BACK)
 			{
-				ROS_INFO("Deploy direction back");
+				// ROS_INFO("Deploy direction back");
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 #ifdef REAR_INTAKE_ENABLED
 				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
