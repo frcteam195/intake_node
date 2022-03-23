@@ -34,7 +34,6 @@
   <!-- Use depend as a shortcut for packages that are both build and exec dependencies -->
     <depend>roscpp</depend>
     <depend>ck_utilities_node</depend>
-    <depend>climber_node</depend>
     <depend>network_tables_node</depend>
   <!--   Note that this is equivalent to the following: -->
   <!--   <build_depend>roscpp</build_depend> -->
@@ -43,10 +42,12 @@
     <build_depend>message_generation</build_depend>
     <build_depend>rio_control_node</build_depend>
     <build_depend>hmi_agent_node</build_depend>
+    <build_depend>climber_node</build_depend>
   <!-- Use build_export_depend for packages you need in order to build against this package: -->
     <build_export_depend>message_generation</build_export_depend>
     <build_export_depend>rio_control_node</build_export_depend>
     <build_export_depend>hmi_agent_node</build_export_depend>
+    <build_export_depend>climber_node</build_export_depend>
   <!-- Use buildtool_depend for build tool packages: -->
   <!--   <buildtool_depend>catkin</buildtool_depend> -->
   <!-- Use exec_depend for packages you need at runtime: -->
