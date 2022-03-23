@@ -499,31 +499,31 @@ void robotStatusCallback(const rio_control_node::Robot_Status &msg)
 void motorConfiguration(void)
 {
 	front_roller = new Motor(FRONT_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_roller->config().set_supply_current_limit(true, 10, 0, 0);
+	front_roller->config().set_supply_current_limit(true, 20, 0, 0);
 	front_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_roller->config().apply();
 
 #ifdef REAR_INTAKE_ENABLED
 	back_roller = new Motor(BACK_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_roller->config().set_supply_current_limit(true, 10, 0, 0);
+	back_roller->config().set_supply_current_limit(true, 20, 0, 0);
 	back_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	back_roller->config().apply();
 #endif
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
+	front_belt->config().set_supply_current_limit(true, 20, 0, 0);
 	front_belt->config().set_inverted(true);
 	front_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_belt->config().apply();
 
 	back_belt = new Motor(BACK_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_belt->config().set_supply_current_limit(true, 10, 0, 0);
+	back_belt->config().set_supply_current_limit(true, 20, 0, 0);
 	back_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	back_belt->config().apply();
 
 	uptake = new Motor(UPTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
 	uptake->config().set_inverted(true);
-	uptake->config().set_supply_current_limit(true, 10, 0, 0);
+	uptake->config().set_supply_current_limit(true, 20, 0, 0);
 	uptake->config().set_neutral_mode(MotorConfig::NeutralMode::BRAKE);
     uptake->config().set_kP(0.07);
     uptake->config().set_kI(0.0);
