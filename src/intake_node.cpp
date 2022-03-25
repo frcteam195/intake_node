@@ -20,7 +20,7 @@
 #include <network_tables_node/NTSetBool.h>
 #include <climber_node/Climber_Status.h>
 
-#define REAR_INTAKE_ENABLED
+// #define REAR_INTAKE_ENABLED
 
 #define FRONT_ROLLER_CAN_ID 7
 #define FRONT_BELT_CAN_ID 9
@@ -28,13 +28,7 @@
 #define UPTAKE_CAN_ID 11
 #define FRONT_SOLENOID_ID 4
 
-#ifdef REAR_INTAKE_ENABLED
-#define BACK_ROLLER_CAN_ID 8
-#define BACK_SOLENOID_ID 5
-#endif
-
 #define PIXY_SIGNAL_CAN_ID 12
-
 
 #define UPTAKE_POWER_FORWARD 1
 #define UPTAKE_POWER_REVERSE -1
@@ -60,10 +54,6 @@ static Motor *back_belt;
 static Motor *uptake;
 
 static Solenoid *front_intake_solenoid;
-#ifdef REAR_INTAKE_ENABLED
-static Motor *back_roller;
-static Solenoid *back_intake_solenoid;
-#endif
 
 static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
 
@@ -92,20 +82,6 @@ enum class IntakeStates
 	EJECT_BALL,
 	SHOOTING_BALL
 };
-
-// static std::map<std::string, 
-
-enum class DeployedDirection
-{
-	FRONT,
-	BACK
-};
-
-#ifdef REAR_INTAKE_ENABLED
-static DeployedDirection deployed_direction = DeployedDirection::BACK;
-#else
-static DeployedDirection deployed_direction = DeployedDirection::FRONT;
-#endif
 
 static IntakeStates intake_state = IntakeStates::IDLE;
 static IntakeStates next_intake_state = IntakeStates::IDLE;
@@ -214,33 +190,15 @@ void stateMachineStep()
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		// Turn Off Rollers
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#ifdef REAR_INTAKE_ENABLED
-		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#endif
 		uptake_command = 0;
 	}
 	break;
 
 	case IntakeStates::INTAKE_ROLLERS:
 	{
-		if (deployed_direction == DeployedDirection::FRONT)
-		{
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#ifdef REAR_INTAKE_ENABLED
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#endif
-		}
-		else
-		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-#ifdef REAR_INTAKE_ENABLED
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-#endif
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		}
+		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		uptake_command = 0;
 	}
 	break;
@@ -256,33 +214,15 @@ void stateMachineStep()
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#ifdef REAR_INTAKE_ENABLED
-		back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#endif
 	}
 	break;
 
 	case IntakeStates::EJECT_BALL:
 	{
 		// Lob The Ball Out
-		if (deployed_direction == DeployedDirection::FRONT)
-		{
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-#ifdef REAR_INTAKE_ENABLED
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-#endif
-		}
-		else
-		{
-			back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-#ifdef REAR_INTAKE_ENABLED
-			back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-#endif
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
-			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		}
+		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 
 		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
 		{
@@ -404,56 +344,6 @@ void stateMachineStep()
 	}
 }
 
-void determineDeployDirection()
-{
-	// constexpr float accumulator_cap = 10;
-	// constexpr float threshold = 5;
-	// static float drivetrain_accumulator = 0;
-	// ROS_INFO("Accumulator %f", drivetrain_accumulator);
-	// Figure out deployment direction
-	// if (fabs(drivetrain_fwd_back) > 0.1)
-	// {
-	// 	drivetrain_accumulator += drivetrain_fwd_back;
-	// 	if (drivetrain_accumulator > accumulator_cap)
-	// 	{
-	// 		drivetrain_accumulator = accumulator_cap;
-	// 	}
-	// 	if (drivetrain_accumulator < -accumulator_cap)
-	// 	{
-	// 		drivetrain_accumulator = -accumulator_cap;
-	// 	}
-	// 	if (drivetrain_accumulator > threshold)
-	// 	{
-	// 		deployed_direction = DeployedDirection::FRONT;
-	// 	}
-	// 	if (drivetrain_accumulator < -threshold)
-	// 	{
-	// 		deployed_direction = DeployedDirection::BACK;
-	// 	}
-	// }
-#ifdef REAR_INTAKE_ENABLED
-	static DeployedDirection remembered = DeployedDirection::BACK;
-	static bool last_flip_intakes = false;
-	if(flip_intakes && !last_flip_intakes)
-	{
-		if(remembered == DeployedDirection::FRONT)
-		{
-			remembered = DeployedDirection::BACK;
-		}
-		else
-		{
-			remembered = DeployedDirection::FRONT;
-		}
-	}
-	last_flip_intakes = flip_intakes;
-
-
-	deployed_direction = remembered;
-#else
-	deployed_direction = DeployedDirection::FRONT;
-#endif
-}
-
 void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 {
 	for (const rio_control_node::Motor_Info &motorInfo : msg.motors)
@@ -465,7 +355,6 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 	{
 		red_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].forward_limit_closed;
 		blue_ball_present = motor_status_map[PIXY_SIGNAL_CAN_ID].reverse_limit_closed;
-		// ROS_INFO("Red? %d Blue? %d", red_ball_present, blue_ball_present);
 	}
 	else
 	{
@@ -503,13 +392,6 @@ void motorConfiguration(void)
 	front_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_roller->config().apply();
 
-#ifdef REAR_INTAKE_ENABLED
-	back_roller = new Motor(BACK_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_roller->config().set_supply_current_limit(true, 20, 0, 0);
-	back_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
-	back_roller->config().apply();
-#endif
-
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
 	front_belt->config().set_supply_current_limit(true, 20, 0, 0);
 	front_belt->config().set_inverted(true);
@@ -535,9 +417,6 @@ void motorConfiguration(void)
 	uptake->config().apply();
 
 	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
-#ifdef REAR_INTAKE_ENABLED
-	back_intake_solenoid = new Solenoid(BACK_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
-#endif
 }
 
 
@@ -575,30 +454,11 @@ std::string intake_state_to_string(IntakeStates state)
     return "INVALID";
 }
 
-std::string intake_deployed_direction_to_string(DeployedDirection state)
-{
-    switch (state)
-    {
-    case DeployedDirection::FRONT:
-    {
-        return "FRONT";
-        break;
-    }
-    case DeployedDirection::BACK:
-    {
-        return "BACK";
-        break;
-    }
-	}
-    return "INVALID";
-}
-
 void publish_diagnostic_data()
 {
 	static ros::Publisher diagnostic_publisher = node->advertise<intake_node::intake_diagnostics>("/IntakeNodeDiagnostics", 1);
 	intake_node::intake_diagnostics diagnostics;
 
-	diagnostics.deployed_direction = intake_deployed_direction_to_string(deployed_direction);
 	diagnostics.intake_state = intake_state_to_string(intake_state);
 	diagnostics.next_intake_state = intake_state_to_string(next_intake_state);
 	diagnostics.intake_rollers = intake_rollers;
@@ -684,7 +544,6 @@ int main(int argc, char **argv)
 
 		last_robot_state = robot_state;
 
-		determineDeployDirection();
 		// Decided at WNE to require retract intake to be held down to extend intakes
 		// this should be cleaned up FIXME TBD MGT
 		if (!retract_intake || manual_intake || manual_outake)
@@ -692,27 +551,11 @@ int main(int argc, char **argv)
 			if ((!retract_intake && !hooks_deployed) || climber_retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-#ifdef REAR_INTAKE_ENABLED
-				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-#endif
 			}
 			else if (hooks_deployed && !climber_retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-#ifdef REAR_INTAKE_ENABLED
-				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
-#endif
 			}
-// 			if (manual_intake)
-// 			{
-// 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-// 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-// 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-// #ifdef REAR_INTAKE_ENABLED
-// 				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-// #endif
-// 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-// 			}
 			if (manual_outake)
 			{
 				has_a_ball = false;
@@ -721,9 +564,6 @@ int main(int argc, char **argv)
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-#ifdef REAR_INTAKE_ENABLED
-				back_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-#endif
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 			}
 			else
@@ -735,22 +575,7 @@ int main(int argc, char **argv)
 		else
 		{
 			stateMachineStep();
-			if (deployed_direction == DeployedDirection::FRONT)
-			{
-				// ROS_INFO("Deploy direction front");
-				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
-#ifdef REAR_INTAKE_ENABLED
-				back_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-#endif
-			}
-			if (deployed_direction == DeployedDirection::BACK)
-			{
-				// ROS_INFO("Deploy direction back");
-				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
-#ifdef REAR_INTAKE_ENABLED
-				back_intake_solenoid->set(Solenoid::SolenoidState::ON);
-#endif
-			}
+			front_intake_solenoid->set(Solenoid::SolenoidState::ON);
 		}
 		publish_diagnostic_data();
 		rate.sleep();

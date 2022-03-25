@@ -1,4 +1,3 @@
-string deployed_direction 
 string intake_state 
 string next_intake_state
 bool intake_rollers
