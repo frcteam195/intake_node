@@ -90,7 +90,6 @@ static bool intake_rollers = false;
 static bool retract_intake = false;
 static bool manual_intake = false;
 static bool manual_outake = false;
-static bool flip_intakes = false;
 static float drivetrain_fwd_back = 0;
 static double uptake_position = 0;
 
@@ -121,7 +120,6 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_intake = msg.manual_intake;
 	manual_outake = msg.manual_outake;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
-	flip_intakes = msg.flip_intakes;
 	if (!hooks_deployed)
     {
         hooks_deployed = msg.deploy_hooks;
