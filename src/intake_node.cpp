@@ -482,8 +482,8 @@ void nt_publish()
 		{
 			bool setSuccess = true;
 			network_tables_node::NTSetBool ntmsg;
-			ntmsg.request.table_name = "DiagData";
-			ntmsg.request.entry_name = "HasBall";
+			ntmsg.request.table_name = "dashboard_data";
+			ntmsg.request.entry_name = "has_ball";
 			ntmsg.request.value = has_a_ball;
 			setSuccess &= nt_setbool_client.call(ntmsg);
 			if (!setSuccess)
