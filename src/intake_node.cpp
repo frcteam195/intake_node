@@ -387,6 +387,7 @@ void motorConfiguration(void)
 {
 	front_roller = new Motor(FRONT_ROLLER_CAN_ID, Motor::Motor_Type::TALON_FX);
 	front_roller->config().set_supply_current_limit(true, 20, 0, 0);
+	front_roller->config().set_inverted(true);
 	front_roller->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_roller->config().apply();
 
