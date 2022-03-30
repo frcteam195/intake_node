@@ -202,7 +202,7 @@ void stateMachineStep()
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
-		if(time_in_state > ros::Duration(0.2))
+		if(time_in_state > ros::Duration(0.3))
 		{
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
