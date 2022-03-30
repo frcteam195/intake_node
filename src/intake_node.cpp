@@ -36,7 +36,7 @@
 #define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.5
 #define EJECT_TIME 2
-#define INTAKE_TIME 1
+#define INTAKE_TIME 0.05
 
 
 
