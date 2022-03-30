@@ -17,7 +17,7 @@
 
 #include "hmi_agent_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
-#include <network_tables_node/NTSetBool.h>
+#include "ck_utilities/NTHelper.hpp"
 #include <climber_node/Climber_Status.h>
 
 // #define REAR_INTAKE_ENABLED
@@ -97,17 +97,6 @@ static bool red_ball_present = false;
 static bool blue_ball_present = false;
 static bool hooks_deployed = false;
 static ros::Time time_roller_last_active = ros::Time(0);
-
-ros::ServiceClient nt_setbool_client;
-
-ros::ServiceClient& getNTSetBoolSrv()
-{
-	if (!nt_setbool_client)
-	{
-		nt_setbool_client = node->serviceClient<network_tables_node::NTSetBool>("nt_setbool", true);
-	}
-	return nt_setbool_client;
-}
 
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 {
@@ -492,21 +481,8 @@ void nt_publish()
 	ros::Rate rate(10);
 	while(ros::ok())
 	{
-		ros::ServiceClient& nt_setbool_localclient = getNTSetBoolSrv();
-		if (nt_setbool_localclient)
-		{
-			bool setSuccess = true;
-			network_tables_node::NTSetBool ntmsg;
-			ntmsg.request.table_name = "dashboard_data";
-			ntmsg.request.entry_name = "has_ball";
-			ntmsg.request.value = has_a_ball;
-			setSuccess &= nt_setbool_client.call(ntmsg);
-			if (!setSuccess)
-			{
-				// ROS_WARN("Failed to set values for limelight: %s", ll.name.c_str());
-			}
-
-		}
+		bool local_has_a_ball = has_a_ball;
+		ck::nt::set("dashboard_data", "has_ball", local_has_a_ball);
 		rate.sleep();
 	}
 
