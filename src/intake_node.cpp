@@ -36,7 +36,7 @@
 #define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.5
 #define EJECT_TIME 2
-#define INTAKE_TIME 0.05
+#define INTAKE_TIME 1
 
 
 
@@ -194,8 +194,15 @@ void stateMachineStep()
 
 	case IntakeStates::INTAKE_ROLLERS:
 	{
+		if(intake_rollers)
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		uptake_command = 0;
 	}
