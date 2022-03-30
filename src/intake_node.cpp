@@ -202,7 +202,14 @@ void stateMachineStep()
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
-		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		if(time_in_state > ros::Duration(0.2))
+		{
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		uptake_command = 0;
 	}
