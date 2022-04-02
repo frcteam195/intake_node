@@ -211,7 +211,14 @@ void stateMachineStep()
 			uptake->set(Motor::Control_Mode::MOTION_MAGIC, uptake_target, 0);
 		}
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		if(intake_rollers)
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 	}
 	break;
 
@@ -219,7 +226,14 @@ void stateMachineStep()
 	{
 		// Lob The Ball Out
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		if(intake_rollers)
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 
 		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
 		{
