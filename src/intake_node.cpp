@@ -27,6 +27,10 @@
 #define UPTAKE_CAN_ID 11
 #define FRONT_SOLENOID_ID 4
 
+#define LOWER_HARDSTOP_SOLENOID_ID 3
+#define UPPER_HARDSTOP_SOLENOID_ID 2
+
+
 #define PIXY_SIGNAL_CAN_ID 12
 
 #define UPTAKE_POWER_FORWARD 1
@@ -52,6 +56,10 @@ static Motor *front_belt;
 static Motor *uptake;
 
 static Solenoid *front_intake_solenoid;
+
+static Solenoid *lower_hardstop_solenoid;
+static Solenoid *upper_hardstop_solenoid;
+
 
 static std::map<uint16_t, rio_control_node::Motor_Info> motor_status_map;
 
@@ -294,7 +302,7 @@ void stateMachineStep()
 	case IntakeStates::UPTAKE_BALL:
 	{
 		static ros::Time begin_transition_time = ros::Time::now();
-		if (uptake_position >= uptake_target - 0.2 || has_a_ball)
+		if (begin_transition_time < ros::Time::now() - ros::Duration(0.2) || has_a_ball)
 		{
 			
 			if(!has_a_ball)
@@ -307,7 +315,7 @@ void stateMachineStep()
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
 		}
-		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(0.5))
+		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(0.2))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
@@ -424,6 +432,9 @@ void motorConfiguration(void)
 	uptake->config().apply();
 
 	front_intake_solenoid = new Solenoid(FRONT_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+	lower_hardstop_solenoid = new Solenoid(LOWER_HARDSTOP_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+	upper_hardstop_solenoid = new Solenoid(UPPER_HARDSTOP_SOLENOID_ID, Solenoid::SolenoidType::SINGLE);
+
 }
 
 
@@ -585,6 +596,25 @@ int main(int argc, char **argv)
 			stateMachineStep();
 			front_intake_solenoid->set(Solenoid::SolenoidState::ON);
 		}
+
+		if (intake_state == IntakeStates::EJECT_BALL || manual_outake_back)
+		{
+			lower_hardstop_solenoid->set(Solenoid::SolenoidState::ON);
+		}
+		else
+		{
+			lower_hardstop_solenoid->set(Solenoid::SolenoidState::OFF);
+		}
+
+		if (intake_state == IntakeStates::SHOOTING_BALL)
+		{
+			upper_hardstop_solenoid->set(Solenoid::SolenoidState::ON);
+		}
+		else
+		{
+			upper_hardstop_solenoid->set(Solenoid::SolenoidState::OFF);
+		}
+
 		publish_diagnostic_data();
 		rate.sleep();
 	}
