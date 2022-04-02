@@ -543,7 +543,7 @@ int main(int argc, char **argv)
 		// this should be cleaned up FIXME TBD MGT
 		if (!retract_intake || manual_intake || manual_outake_back || manual_outake_front)
 		{
-			if (manual_outake_front)
+			if (manual_outake_front || manual_outake_back)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
 			}
