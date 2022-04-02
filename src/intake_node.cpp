@@ -24,7 +24,6 @@
 
 #define FRONT_ROLLER_CAN_ID 7
 #define FRONT_BELT_CAN_ID 9
-#define BACK_BELT_CAN_ID 10
 #define UPTAKE_CAN_ID 11
 #define FRONT_SOLENOID_ID 4
 
@@ -50,7 +49,6 @@ static ros::Subscriber climber_status_subscriber;
 
 static Motor *front_roller;
 static Motor *front_belt;
-static Motor *back_belt;
 static Motor *uptake;
 
 static Solenoid *front_intake_solenoid;
@@ -174,7 +172,6 @@ void stateMachineStep()
 	{
 		// Turn Off Belts
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		// Turn Off Rollers
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		uptake_command = 0;
@@ -199,7 +196,6 @@ void stateMachineStep()
 		{
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
-		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		uptake_command = 0;
 	}
 	break;
@@ -213,7 +209,6 @@ void stateMachineStep()
 			uptake->set(Motor::Control_Mode::MOTION_MAGIC, uptake_target, 0);
 		}
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 	}
 	break;
@@ -223,7 +218,6 @@ void stateMachineStep()
 		// Lob The Ball Out
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-		back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1, 0);
 
 		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
 		{
@@ -400,11 +394,6 @@ void motorConfiguration(void)
 	front_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_belt->config().apply();
 
-	back_belt = new Motor(BACK_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	back_belt->config().set_supply_current_limit(true, 20, 0, 0);
-	back_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
-	back_belt->config().apply();
-
 	uptake = new Motor(UPTAKE_CAN_ID, Motor::Motor_Type::TALON_FX);
 	uptake->config().set_inverted(true);
 	uptake->config().set_supply_current_limit(true, 20, 0, 0);
@@ -550,9 +539,8 @@ int main(int argc, char **argv)
 				has_a_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
-				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-				back_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 			}
 			else
