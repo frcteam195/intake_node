@@ -3,7 +3,8 @@ string next_intake_state
 bool intake_rollers
 bool retract_intake
 bool manual_intake
-bool manual_outake
+bool manual_outake_back
+bool manual_outake_front
 float32 drivetrain_fwd_back
 bool red_ball_present
 bool blue_ball_present

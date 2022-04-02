@@ -87,7 +87,8 @@ static IntakeStates next_intake_state = IntakeStates::IDLE;
 static bool intake_rollers = false;
 static bool retract_intake = false;
 static bool manual_intake = false;
-static bool manual_outake = false;
+static bool manual_outake_back = false;
+static bool manual_outake_front = false;
 static float drivetrain_fwd_back = 0;
 static double uptake_position = 0;
 
@@ -105,7 +106,8 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	}
 	retract_intake = msg.retract_intake;
 	manual_intake = msg.manual_intake;
-	manual_outake = msg.manual_outake;
+	manual_outake_back = msg.manual_outake_back;
+	manual_outake_front = msg.manual_outake_front;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
 	if (!hooks_deployed)
     {
@@ -455,7 +457,8 @@ void publish_diagnostic_data()
 	diagnostics.intake_rollers = intake_rollers;
 	diagnostics.retract_intake = retract_intake;
 	diagnostics.manual_intake = manual_intake;
-	diagnostics.manual_outake = manual_outake;
+	diagnostics.manual_outake_back = manual_outake_back;
+	diagnostics.manual_outake_front = manual_outake_front;
 	diagnostics.drivetrain_fwd_back = drivetrain_fwd_back;
 	diagnostics.red_ball_present = red_ball_present;
 	diagnostics.blue_ball_present = blue_ball_present;
@@ -524,9 +527,13 @@ int main(int argc, char **argv)
 
 		// Decided at WNE to require retract intake to be held down to extend intakes
 		// this should be cleaned up FIXME TBD MGT
-		if (!retract_intake || manual_intake || manual_outake)
+		if (!retract_intake || manual_intake || manual_outake_back || manual_outake_front)
 		{
-			if ((!retract_intake && !hooks_deployed) || climber_retract_intake)
+			if (manual_outake_front)
+			{
+				front_intake_solenoid->set(Solenoid::SolenoidState::ON);
+			}
+			else if ((!retract_intake && !hooks_deployed) || climber_retract_intake)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 			}
@@ -534,12 +541,22 @@ int main(int argc, char **argv)
 			{
 				front_intake_solenoid->set(Solenoid::SolenoidState::OFF);
 			}
-			if (manual_outake)
+			
+			if (manual_outake_back)
 			{
 				has_a_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+			}
+			else if (manual_outake_front)
+			{
+				has_a_ball = false;
+				intake_state = IntakeStates::IDLE;
+				next_intake_state = IntakeStates::IDLE;
+				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 			}
