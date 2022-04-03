@@ -37,9 +37,11 @@
 #define UPTAKE_POWER_REVERSE -1
 #define UPTAKE_LOADING_DISTANCE 4.5
 #define UPTAKE_DURATION_S 0.02
-#define UPTAKE_SHOOT_DURATION_S 0.5
-#define EJECT_TIME 2
+#define UPTAKE_SHOOT_DURATION_S 0.7
+#define EJECT_PISTON_OFFSET_TIME 0.3
+#define EJECT_TIME 0.8
 #define INTAKE_TIME 0.5
+#define UPTAKE_DURATION 0.5
 
 
 
@@ -143,12 +145,6 @@ void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
 	static ros::Publisher intakeStatusPublisher = node->advertise<intake_node::Intake_Status>("/IntakeStatus", 1);
-	static double uptake_at_start_of_state = 0;
-	if(next_intake_state != intake_state)
-	{
-		uptake_at_start_of_state = uptake_position;
-	}
-
 
 	intake_node::Intake_Status statusMsg;
 	if (command_shoot)
@@ -215,8 +211,7 @@ void stateMachineStep()
 		// Put Ball Into Uptake
 		if (!has_a_ball)
 		{
-			uptake_target = uptake_at_start_of_state + UPTAKE_LOADING_DISTANCE;
-			uptake->set(Motor::Control_Mode::MOTION_MAGIC, uptake_target, 0);
+			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 		}
 		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		if(intake_rollers)
@@ -243,7 +238,8 @@ void stateMachineStep()
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
 
-		if ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present))
+		if (time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME) &&
+		   ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
 		{
 			uptake_command = 1;
 		}
@@ -258,6 +254,7 @@ void stateMachineStep()
 	case IntakeStates::SHOOTING_BALL:
 	{
 		uptake_command = 1;
+		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		break;
 	}
 
@@ -302,9 +299,8 @@ void stateMachineStep()
 	case IntakeStates::UPTAKE_BALL:
 	{
 		static ros::Time begin_transition_time = ros::Time::now();
-		if (begin_transition_time < ros::Time::now() - ros::Duration(0.2) || has_a_ball)
-		{
-			
+		if (begin_transition_time < ros::Time::now() - ros::Duration(UPTAKE_DURATION) || has_a_ball)
+		{	
 			if(!has_a_ball)
 			{
 				begin_transition_time = ros::Time::now();
@@ -315,7 +311,7 @@ void stateMachineStep()
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
 		}
-		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(0.2))
+		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(UPTAKE_DURATION))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
