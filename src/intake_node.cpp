@@ -38,6 +38,7 @@
 #define UPTAKE_LOADING_DISTANCE 4.5
 #define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.9
+#define UPTAKE_SENSOR_CAN_ID 18
 #define EJECT_PISTON_OFFSET_TIME 0.3
 #define EJECT_TIME 0.8
 #define INTAKE_TIME 0.5
@@ -101,6 +102,7 @@ static bool manual_outake_back = false;
 static bool manual_outake_front = false;
 static float drivetrain_fwd_back = 0;
 static double uptake_position = 0;
+static bool uptake_sensor_has_ball = false;
 
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
@@ -300,7 +302,7 @@ void stateMachineStep()
 			has_a_ball = true;
 		}
 
-		if(ros::Time::now() > begin_transition_time + ros::Duration(UPTAKE_DURATION))
+		if(ros::Time::now() > begin_transition_time + ros::Duration(UPTAKE_DURATION) || uptake_sensor_has_ball)
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
@@ -382,6 +384,10 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 	{
 		red_ball_present = false;
 		blue_ball_present = false;
+	}
+	if(motor_status_map.find(UPTAKE_SENSOR_CAN_ID) != motor_status_map.end())
+	{
+		uptake_sensor_has_ball = !motor_status_map[UPTAKE_SENSOR_CAN_ID].forward_limit_closed;
 	}
 	if (motor_status_map.find(UPTAKE_CAN_ID) != motor_status_map.end())
 	{
