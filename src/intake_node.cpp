@@ -139,8 +139,9 @@ void climber_status_callback(const climber_node::Climber_Status &msg)
 
 
 static std::atomic_bool has_a_ball {false};
+static std::atomic_bool has_a_second_ball {false};
 static double uptake_target = 0;
-static int uptake_command = 0;
+static float uptake_command = 0;
 void stateMachineStep()
 {
 	static ros::Time time_state_entered = ros::Time::now();
@@ -241,7 +242,7 @@ void stateMachineStep()
 		if (time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME) &&
 		   ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
 		{
-			uptake_command = 1;
+			uptake_command = UPTAKE_POWER_FORWARD;
 		}
 		else
 		{
@@ -253,7 +254,7 @@ void stateMachineStep()
 
 	case IntakeStates::SHOOTING_BALL:
 	{
-		uptake_command = 1;
+		uptake_command = UPTAKE_POWER_FORWARD;
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		break;
 	}
@@ -277,6 +278,11 @@ void stateMachineStep()
 
 	case IntakeStates::INTAKE_ROLLERS:
 	{
+		if (has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
+		{
+			has_a_second_ball = true;
+		}
+
 		if (!has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
@@ -338,24 +344,14 @@ void stateMachineStep()
 			next_intake_state = IntakeStates::IDLE;
 		}
 		has_a_ball = false;
+		has_a_second_ball = false;
 		break;
 	}
 	}
 
 	if(intake_state != IntakeStates::UPTAKE_BALL)
 	{
-		if (uptake_command > 0)
-		{
-			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_FORWARD, 0);
-		}
-		else if (uptake_command < 0)
-		{
-			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, UPTAKE_POWER_REVERSE, 0);
-		}
-		else
-		{
-			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		}
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, uptake_command, 0);	
 	}
 }
 
@@ -496,6 +492,9 @@ void nt_publish()
 	{
 		bool local_has_a_ball = has_a_ball;
 		ck::nt::set("dashboard_data", "has_ball", local_has_a_ball);
+
+		bool local_has_a_second_ball = has_a_second_ball;
+		ck::nt::set("dashboard_data", "has_second_ball", local_has_a_second_ball);
 		rate.sleep();
 	}
 
@@ -540,6 +539,7 @@ int main(int argc, char **argv)
 		if ((robot_state == RobotState::AUTONOMUS || robot_state == RobotState::TELEOP) && last_robot_state == RobotState::DISABLED)
 		{
 			has_a_ball = false;
+			has_a_second_ball = false;
 			next_intake_state = IntakeStates::IDLE;
 			next_intake_state = IntakeStates::IDLE;
 		}
@@ -566,6 +566,7 @@ int main(int argc, char **argv)
 			if (manual_outake_back)
 			{
 				has_a_ball = false;
+				has_a_second_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
@@ -575,6 +576,7 @@ int main(int argc, char **argv)
 			else if (manual_outake_front)
 			{
 				has_a_ball = false;
+				has_a_second_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
@@ -602,7 +604,7 @@ int main(int argc, char **argv)
 			lower_hardstop_solenoid->set(Solenoid::SolenoidState::OFF);
 		}
 
-		if (intake_state == IntakeStates::SHOOTING_BALL)
+		if (has_a_second_ball || intake_state == IntakeStates::SHOOTING_BALL || manual_outake_back || manual_outake_front)
 		{
 			upper_hardstop_solenoid->set(Solenoid::SolenoidState::ON);
 		}
