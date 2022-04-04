@@ -37,11 +37,11 @@
 #define UPTAKE_POWER_REVERSE -1
 #define UPTAKE_LOADING_DISTANCE 4.5
 #define UPTAKE_DURATION_S 0.02
-#define UPTAKE_SHOOT_DURATION_S 0.7
+#define UPTAKE_SHOOT_DURATION_S 0.9
 #define EJECT_PISTON_OFFSET_TIME 0.3
 #define EJECT_TIME 0.8
 #define INTAKE_TIME 0.5
-#define UPTAKE_DURATION 0.5
+#define UPTAKE_DURATION 0.3
 
 
 
@@ -214,7 +214,7 @@ void stateMachineStep()
 		{
 			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 		}
-		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.1, 0);
 		if(intake_rollers)
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
@@ -228,8 +228,15 @@ void stateMachineStep()
 
 	case IntakeStates::EJECT_BALL:
 	{
-		// Lob The Ball Out
-		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		if(time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME))
+		{
+			// Lob The Ball Out
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 		if(intake_rollers)
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
@@ -238,23 +245,13 @@ void stateMachineStep()
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
-
-		if (time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME) &&
-		   ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
-		{
-			uptake_command = UPTAKE_POWER_FORWARD;
-		}
-		else
-		{
-			uptake_command = 0;
-		}
-		
+		uptake_command = 0;
 	}
 	break;
 
 	case IntakeStates::SHOOTING_BALL:
 	{
-		uptake_command = UPTAKE_POWER_FORWARD;
+		uptake_command = 1.0;
 		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		break;
 	}
@@ -405,7 +402,7 @@ void motorConfiguration(void)
 	front_roller->config().apply();
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_belt->config().set_supply_current_limit(true, 20, 0, 0);
+	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
 	front_belt->config().set_inverted(true);
 	front_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_belt->config().apply();
@@ -571,7 +568,7 @@ int main(int argc, char **argv)
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.6, 0);
 			}
 			else if (manual_outake_front)
 			{
@@ -581,7 +578,7 @@ int main(int argc, char **argv)
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
 				front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
-				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
+				uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, -0.6, 0);
 			}
 			else
 			{
