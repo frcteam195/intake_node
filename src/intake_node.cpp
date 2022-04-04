@@ -41,7 +41,7 @@
 #define EJECT_PISTON_OFFSET_TIME 0.3
 #define EJECT_TIME 0.8
 #define INTAKE_TIME 0.5
-#define UPTAKE_DURATION 0.3
+#define UPTAKE_DURATION 0.6
 
 
 
@@ -195,7 +195,7 @@ void stateMachineStep()
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
 		}
-		if(time_in_state > ros::Duration(0.3))
+		if(!has_a_second_ball)
 		{
 			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
 		}
@@ -210,11 +210,8 @@ void stateMachineStep()
 	case IntakeStates::UPTAKE_BALL:
 	{
 		// Put Ball Into Uptake
-		if (!has_a_ball)
-		{
-			uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
-		}
-		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0.1, 0);
+		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
+		front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
 		if(intake_rollers)
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
@@ -275,11 +272,6 @@ void stateMachineStep()
 
 	case IntakeStates::INTAKE_ROLLERS:
 	{
-		if (has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
-		{
-			has_a_second_ball = true;
-		}
-
 		if (!has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
@@ -302,21 +294,19 @@ void stateMachineStep()
 	case IntakeStates::UPTAKE_BALL:
 	{
 		static ros::Time begin_transition_time = ros::Time::now();
-		if (begin_transition_time < ros::Time::now() - ros::Duration(UPTAKE_DURATION) || has_a_ball)
-		{	
-			if(!has_a_ball)
-			{
-				begin_transition_time = ros::Time::now();
-			}
+		if(!has_a_ball)
+		{
+			begin_transition_time = ros::Time::now();
 			has_a_ball = true;
+		}
+
+		if(ros::Time::now() > begin_transition_time + ros::Duration(UPTAKE_DURATION))
+		{
+			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
 		else
 		{
 			next_intake_state = IntakeStates::UPTAKE_BALL;
-		}
-		if(has_a_ball && begin_transition_time < ros::Time::now() - ros::Duration(UPTAKE_DURATION))
-		{
-			next_intake_state = IntakeStates::INTAKE_ROLLERS;
 		}
 	}
 	break;
@@ -341,7 +331,6 @@ void stateMachineStep()
 			next_intake_state = IntakeStates::IDLE;
 		}
 		has_a_ball = false;
-		has_a_second_ball = false;
 		break;
 	}
 	}
@@ -349,6 +338,31 @@ void stateMachineStep()
 	if(intake_state != IntakeStates::UPTAKE_BALL)
 	{
 		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, uptake_command, 0);	
+	}
+
+	static ros::Time second_ball_time = ros::Time::now();
+	static bool had_second_ball_last_time = false;
+
+	if (intake_state != IntakeStates::UPTAKE_BALL && has_a_ball && ((alliance == Alliance::RED && red_ball_present) || (alliance == Alliance::BLUE && blue_ball_present)))
+	{
+		if(!had_second_ball_last_time)
+		{
+			second_ball_time = ros::Time::now();
+		}
+		had_second_ball_last_time = true;
+	}
+	else
+	{
+		had_second_ball_last_time = false;
+	}
+
+	if(had_second_ball_last_time && ros::Time::now() > second_ball_time + ros::Duration(0.25))
+	{
+		has_a_second_ball = true;
+	}
+	else
+	{
+		has_a_second_ball = false;
 	}
 }
 
@@ -402,7 +416,7 @@ void motorConfiguration(void)
 	front_roller->config().apply();
 
 	front_belt = new Motor(FRONT_BELT_CAN_ID, Motor::Motor_Type::TALON_FX);
-	front_belt->config().set_supply_current_limit(true, 10, 0, 0);
+	front_belt->config().set_supply_current_limit(true, 20, 0, 0);
 	front_belt->config().set_inverted(true);
 	front_belt->config().set_neutral_mode(MotorConfig::NeutralMode::COAST);
 	front_belt->config().apply();
@@ -533,13 +547,20 @@ int main(int argc, char **argv)
 
 		static RobotState last_robot_state = RobotState::DISABLED;
 
-		if ((robot_state == RobotState::AUTONOMUS || robot_state == RobotState::TELEOP) && last_robot_state == RobotState::DISABLED)
+		if (robot_state == RobotState::AUTONOMUS && last_robot_state == RobotState::DISABLED)
 		{
 			has_a_ball = false;
 			has_a_second_ball = false;
 			next_intake_state = IntakeStates::IDLE;
 			next_intake_state = IntakeStates::IDLE;
 		}
+
+		if (robot_state == RobotState::TELEOP && last_robot_state == RobotState::DISABLED)
+		{
+			next_intake_state = IntakeStates::IDLE;
+			next_intake_state = IntakeStates::IDLE;
+		}
+
 
 		last_robot_state = robot_state;
 
@@ -563,7 +584,6 @@ int main(int argc, char **argv)
 			if (manual_outake_back)
 			{
 				has_a_ball = false;
-				has_a_second_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1.0, 0);
@@ -573,7 +593,6 @@ int main(int argc, char **argv)
 			else if (manual_outake_front)
 			{
 				has_a_ball = false;
-				has_a_second_ball = false;
 				intake_state = IntakeStates::IDLE;
 				next_intake_state = IntakeStates::IDLE;
 				front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, -1.0, 0);
