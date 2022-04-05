@@ -42,7 +42,7 @@
 #define EJECT_PISTON_OFFSET_TIME 0.3
 #define EJECT_TIME 0.8
 #define INTAKE_TIME 0.5
-#define UPTAKE_DURATION 0.6
+#define UPTAKE_DURATION 0.8
 
 
 
@@ -358,7 +358,7 @@ void stateMachineStep()
 		had_second_ball_last_time = false;
 	}
 
-	if(had_second_ball_last_time && ros::Time::now() > second_ball_time + ros::Duration(0.25))
+	if(had_second_ball_last_time && ros::Time::now() > second_ball_time + ros::Duration(0.1))
 	{
 		has_a_second_ball = true;
 	}
