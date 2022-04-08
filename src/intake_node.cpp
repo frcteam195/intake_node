@@ -388,7 +388,7 @@ void motorStatusCallback(const rio_control_node::Motor_Status &msg)
 	}
 	if(motor_status_map.find(UPTAKE_SENSOR_CAN_ID) != motor_status_map.end())
 	{
-		uptake_sensor_has_ball = !motor_status_map[UPTAKE_SENSOR_CAN_ID].forward_limit_closed;
+		uptake_sensor_has_ball = motor_status_map[UPTAKE_SENSOR_CAN_ID].forward_limit_closed;
 	}
 	if (motor_status_map.find(UPTAKE_CAN_ID) != motor_status_map.end())
 	{
