@@ -39,7 +39,7 @@
 #define UPTAKE_DURATION_S 0.02
 #define UPTAKE_SHOOT_DURATION_S 0.9
 #define UPTAKE_SENSOR_CAN_ID 18
-#define EJECT_PISTON_OFFSET_TIME 0.3
+#define EJECT_PISTON_OFFSET_TIME 0.100
 #define EJECT_TIME 0.5
 #define INTAKE_TIME 0.5
 #define UPTAKE_DURATION 0.8
@@ -227,15 +227,16 @@ void stateMachineStep()
 
 	case IntakeStates::EJECT_BALL:
 	{
-		if(time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME))
-		{
-			// Lob The Ball Out
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
-		}
-		else
-		{
-			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
-		}
+		// if(time_in_state > ros::Duration(EJECT_PISTON_OFFSET_TIME))
+		// {
+		// 	// Lob The Ball Out
+		// 	front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		// }
+		// // else
+		// // {
+		// // 	front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		// // }
+		// else 
 		if(intake_rollers)
 		{
 			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
