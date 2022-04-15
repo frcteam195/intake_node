@@ -340,7 +340,7 @@ void stateMachineStep()
 
 	if(intake_state != IntakeStates::UPTAKE_BALL)
 	{
-		uptake->set(Motor::Control_Mode::PERCENT_OUTPUT, uptake_command, 0);	
+		uptake->set(Motor::Control_Mode::VELOCITY, uptake_command * 1520.0, 0);	
 	}
 
 	static ros::Time second_ball_time = ros::Time::now();
@@ -432,9 +432,9 @@ void motorConfiguration(void)
 	uptake->config().set_inverted(true);
 	uptake->config().set_supply_current_limit(true, 20, 0, 0);
 	uptake->config().set_neutral_mode(MotorConfig::NeutralMode::BRAKE);
-    uptake->config().set_kP(0.07);
+    uptake->config().set_kP(0.012);
     uptake->config().set_kI(0.0);
-    uptake->config().set_kD(0.05);
+    uptake->config().set_kD(0.03);
     uptake->config().set_kF(0.047651);
     uptake->config().set_motion_cruise_velocity(16000);
     uptake->config().set_motion_acceleration(32000);
