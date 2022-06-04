@@ -40,7 +40,7 @@
 #define UPTAKE_SHOOT_DURATION_S 0.9
 #define UPTAKE_SENSOR_CAN_ID 18
 #define EJECT_PISTON_OFFSET_TIME 0.100
-#define EJECT_TIME 0.4 //changed from 0.5
+#define EJECT_TIME 0.3 //changed from 0.5
 #define INTAKE_TIME 0.5
 #define UPTAKE_DURATION 0.8
 
