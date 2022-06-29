@@ -340,7 +340,7 @@ void stateMachineStep()
 
 	if(intake_state != IntakeStates::UPTAKE_BALL)
 	{
-		uptake->set(Motor::Control_Mode::VELOCITY, uptake_command * 1520.0, 0);	
+		uptake->set(Motor::Control_Mode::VELOCITY, uptake_command * 800.0, 0);	
 	}
 
 	static ros::Time second_ball_time = ros::Time::now();
