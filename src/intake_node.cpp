@@ -107,6 +107,7 @@ static bool uptake_sensor_has_ball = false;
 static bool red_ball_present = false;
 static bool blue_ball_present = false;
 static bool hooks_deployed = false;
+static bool shoot_3ball = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
@@ -121,6 +122,7 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_outake_back = msg.manual_outake_back;
 	manual_outake_front = msg.manual_outake_front;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
+	shoot_3ball = msg.shoot_3ball;
 	if (!hooks_deployed)
     {
         hooks_deployed = msg.deploy_hooks;
@@ -252,7 +254,15 @@ void stateMachineStep()
 	case IntakeStates::SHOOTING_BALL:
 	{
 		uptake_command = 1.0;
-		front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		if (shoot_3ball)
+		{
+			front_belt->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 1, 0);
+		}
+		else
+		{
+			front_roller->set(Motor::Control_Mode::PERCENT_OUTPUT, 0, 0);
+		}
 		break;
 	}
 
@@ -329,9 +339,19 @@ void stateMachineStep()
 
 	case IntakeStates::SHOOTING_BALL:
 	{
-		if (time_in_state > ros::Duration(UPTAKE_SHOOT_DURATION_S))
+		if (shoot_3ball)
 		{
-			next_intake_state = IntakeStates::IDLE;
+			if (time_in_state > ros::Duration(UPTAKE_SHOOT_DURATION_S * 2.0))
+			{
+				next_intake_state = IntakeStates::IDLE;
+			}
+		}
+		else
+		{
+			if (time_in_state > ros::Duration(UPTAKE_SHOOT_DURATION_S))
+			{
+				next_intake_state = IntakeStates::IDLE;
+			}
 		}
 		has_a_ball = false;
 		break;
