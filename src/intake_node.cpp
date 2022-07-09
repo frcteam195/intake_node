@@ -108,6 +108,7 @@ static bool red_ball_present = false;
 static bool blue_ball_present = false;
 static bool hooks_deployed = false;
 static bool shoot_3ball = false;
+static bool do_not_eject = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
 void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
@@ -123,6 +124,7 @@ void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
 	manual_outake_front = msg.manual_outake_front;
 	drivetrain_fwd_back = msg.drivetrain_fwd_back;
 	shoot_3ball = msg.shoot_3ball;
+	do_not_eject = msg.intake_do_not_eject;
 	if (!hooks_deployed)
     {
         hooks_deployed = msg.deploy_hooks;
@@ -326,6 +328,12 @@ void stateMachineStep()
 
 	case IntakeStates::EJECT_BALL:
 	{
+		if (do_not_eject)
+		{
+			next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			break;
+		}
+
 		if (time_in_state > ros::Duration(EJECT_TIME))
 		{
 			next_intake_state = IntakeStates::INTAKE_ROLLERS;
