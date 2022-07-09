@@ -293,7 +293,14 @@ void stateMachineStep()
 		}
 		else if ((alliance == Alliance::RED && blue_ball_present) || (alliance == Alliance::BLUE && red_ball_present))
 		{
-			next_intake_state = IntakeStates::EJECT_BALL;
+			if (do_not_eject)
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::EJECT_BALL;
+			}
 		}
 		else if (intake_rollers || ros::Time::now() - time_roller_last_active < ros::Duration(INTAKE_TIME))
 		{
