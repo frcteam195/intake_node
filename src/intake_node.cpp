@@ -295,7 +295,14 @@ void stateMachineStep()
 		{
 			if (do_not_eject)
 			{
-				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+				if (intake_rollers)
+				{
+					next_intake_state = IntakeStates::INTAKE_ROLLERS;
+				}
+				else
+				{
+					next_intake_state = IntakeStates::IDLE;
+				}
 			}
 			else
 			{
@@ -337,7 +344,14 @@ void stateMachineStep()
 	{
 		if (do_not_eject)
 		{
-			next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			if (intake_rollers)
+			{
+				next_intake_state = IntakeStates::INTAKE_ROLLERS;
+			}
+			else
+			{
+				next_intake_state = IntakeStates::IDLE;
+			}
 			break;
 		}
 
