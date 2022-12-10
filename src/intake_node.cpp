@@ -15,7 +15,7 @@
 #include "intake_node/Intake_Status.h"
 #include "intake_node/intake_diagnostics.h"
 
-#include "hmi_agent_node/HMI_Signals.h"
+#include "ck_ros_msgs_node/HMI_Signals.h"
 #include "ck_utilities/Solenoid.hpp"
 #include "ck_utilities/NTHelper.hpp"
 #include <climber_node/Climber_Status.h>
@@ -111,7 +111,7 @@ static bool shoot_3ball = false;
 static bool do_not_eject = false;
 static ros::Time time_roller_last_active = ros::Time(0);
 
-void hmiSignalCallback(const hmi_agent_node::HMI_Signals &msg)
+void hmiSignalCallback(const ck_ros_msgs_node::HMI_Signals &msg)
 {
 	intake_rollers = msg.intake_rollers;
 	if (intake_rollers)
